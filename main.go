@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"os"
 
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
@@ -58,11 +57,14 @@ func main() {
 	}
 
 	// Print out the package.
-	hello.WriteTo(os.Stdout)
+	// hello.WriteTo(os.Stdout)
 
 	// Print out the package-level functions.
-	hello.Func("init").WriteTo(os.Stdout)
-	hello.Func("main").WriteTo(os.Stdout)
-	hello.Func("f").WriteTo(os.Stdout)
+	//  hello.Func("init").WriteTo(os.Stdout)
+	//  hello.Func("main").WriteTo(os.Stdout)
+	//  hello.Func("f").WriteTo(os.Stdout)
 
+	for idx, val := range hello.Members {
+		fmt.Printf("%v:\t%v\t%v:%v\n", idx, val, val.Type(), val.Object())
+	}
 }
