@@ -1,0 +1,25 @@
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+const message = "Hello, World!"
+
+var buf any = &time.Time{};
+var _ any = &time.Time{};
+
+func f () (int, int) {
+	ch := make(chan int)
+	_ = ch
+	return 1, 2
+}
+
+func g () {}
+
+func main() {
+	g()
+	a, b := f()
+	fmt.Println(a, b)
+}
