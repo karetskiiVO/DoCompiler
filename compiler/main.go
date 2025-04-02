@@ -34,5 +34,13 @@ func main() {
 	parser := parser.NewDoParser(stream)
 
 	tree := parser.Program() // Начинаем с корневого узла
-	
+	program := NewProgram()
+
+	antlr.ParseTreeWalkerDefault.Walk(NewGoDeclarationListener(program), tree)
+
+
+
+	if program.err != nil {
+		fmt.Println(err)
+	}
 }

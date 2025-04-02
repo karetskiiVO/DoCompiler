@@ -1,22 +1,50 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
 )
 
-type DoDefinitionListener struct {
+type DoDeclarationListener struct {
 	*parser.BaseDoListener
 
-	functions map[string]Function
+	program *Program
 }
 
-func NewGoDeclarationListener() *DoDefinitionListener {
-	return &DoDefinitionListener{
-		functions: make(map[string]Function),
+func NewGoDeclarationListener(program *Program) antlr.ParseTreeListener {
+	if program.err != nil {
+		return new(parser.BaseDoListener)
+	}
+
+	return &DoDeclarationListener{
+		program: program,
 	}
 }
 
-func (l *DoDefinitionListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
-	funcname := ctx.NAME()
-	_ = funcname
+func (l *DoDeclarationListener) EnterTypeDefinition(ctx *parser.TypeDefinitionContext) {
+	newtype, err := l.program.RegisterType(ctx.NAME().GetText())
+	if err != nil {
+		line := ctx.GetStart().GetLine()
+		start := ctx.NAME().GetSourceInterval().Start
+
+		l.program.AddError(fmt.Errorf("%v:%v: %w", line, start, err))
+	}
+
+	// TODO: generics
+	_ = newtype
+}
+
+func (l *DoDeclarationListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
+	newfunc, err := l.program.RegisterFunc(ctx.NAME().GetText())
+	if err != nil {
+		line := ctx.GetStart().GetLine()
+		start := ctx.NAME().GetSourceInterval().Start
+
+		l.program.AddError(fmt.Errorf("%v:%v: %w", line, start, err))
+	}
+
+	// TODO: generics
+	_ = newfunc
 }

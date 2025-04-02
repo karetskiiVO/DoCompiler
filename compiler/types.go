@@ -1,5 +1,5 @@
 package main
 
-type Function struct {
-	name string
-}
+type Type struct{}
+
+type Function struct{}
