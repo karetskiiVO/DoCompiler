@@ -1,4 +1,0 @@
-with A struct {}
-
-with B behavour {}
-

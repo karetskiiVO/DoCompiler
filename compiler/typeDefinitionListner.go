@@ -8,15 +8,15 @@ import (
 type DoDefenitionListener struct {
 	*parser.BaseDoListener
 
-	program *Program
+	program  *Program
 }
 
-func NewDoDefinitionListener(program *Program) antlr.ParseTreeListener {
+func NewDoTypeDefinitionListener(program *Program) antlr.ParseTreeListener {
 	if program.err != nil {
 		return new(parser.BaseDoListener)
 	}
 
 	return &DoDefenitionListener{
-		program: program,
+		program:  program,
 	}
 }

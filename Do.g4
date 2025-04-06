@@ -2,9 +2,10 @@ grammar Do;
 
 program: definition* EOF;
 
-definition: functionDefinition | typeDefinition; // TODO: метод и глобальные переменные
+definition: functionDefinition | typeDefinition | globalVariableDefinition; // TODO: метод и глобальные переменные
 
-functionDefinition: 'act' NAME genericparamslist? '(' /* Здесь надо сделать лист аргументов */ ')' typetuple '{' '}';
+globalVariableDefinition: 'var' NAME typename; /* expression */
+functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple '{' '}';
 typeDefinition: 'with' NAME genericparamslist? type;
 
 type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefinition; 
@@ -13,12 +14,14 @@ structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield) ';')*
 behavourdefinition: 'behavour' '{' '}';
 
 typetuple: typename? | (typename (',' typename)*);
+arglist: argsublist? | (argsublist (',' argsublist));
+argsublist: argname (',' argname)* typename;
 
 basetypefild: typename genericarglist;
 varfield: fieldname typename;
 globalvarfield: fieldname 'glob' typename;
 fieldname: NAME;
-argumentname: NAME;
+argname: NAME;
 typename: dividedname genericparamslist?; // TODO: лямбды 
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
