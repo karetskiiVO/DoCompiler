@@ -12,7 +12,7 @@ import (
 func main() {
 	var options struct {
 		Args struct {
-			SourceFileName string
+			SourceFileNames []string
 		} `positional-args:"yes" required:"1"`
 	}
 
@@ -23,24 +23,49 @@ func main() {
 		os.Exit(1)
 	}
 
-	input, err := antlr.NewFileStream(options.Args.SourceFileName)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	listners := &Listners{
+		listners: make([]antlr.ParseTreeListener, len(options.Args.SourceFileNames)),
+		parsers:  make([]*parser.DoParser, 0, len(options.Args.SourceFileNames)),
+	}
+	for _, fileName := range options.Args.SourceFileNames {
+		input, err := antlr.NewFileStream(fileName)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		lexer := parser.NewDoLexer(input)
+		stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+		listners.parsers = append(listners.parsers, parser.NewDoParser(stream))
 	}
 
-	lexer := parser.NewDoLexer(input)
-	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	parser := parser.NewDoParser(stream)
-
-	tree := parser.Program() // Начинаем с корневого узла
 	program := NewProgram()
 
-	antlr.ParseTreeWalkerDefault.Walk(NewGoDeclarationListener(program), tree)
+	listners.Set(func() antlr.ParseTreeListener { return NewGoDeclarationListener(program) })
+	listners.Exec()
 
+	listners.Set(func() antlr.ParseTreeListener { return NewDoDefinitionListener(program) })
+	listners.Exec()
 
-
-	if program.err != nil {
+	err = program.Validate()
+	if err != nil {
 		fmt.Println(err)
+	}
+}
+
+type Listners struct {
+	listners []antlr.ParseTreeListener
+	parsers  []*parser.DoParser
+}
+
+func (l *Listners) Set(newListner func() antlr.ParseTreeListener) {
+	for i := range l.listners {
+		l.listners[i] = newListner()
+	}
+}
+
+func (l *Listners) Exec() {
+	for i := range l.listners {
+		antlr.ParseTreeWalkerDefault.Walk(l.listners[i], l.parsers[i].Program())
 	}
 }

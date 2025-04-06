@@ -2,7 +2,7 @@ grammar Do;
 
 program: definition* EOF;
 
-definition: functionDefinition | typeDefinition;
+definition: functionDefinition | typeDefinition; // TODO: метод и глобальные переменные
 
 functionDefinition: 'act' NAME genericparamslist? '(' /* Здесь надо сделать лист аргументов */ ')' typetuple '{' '}';
 typeDefinition: 'with' NAME genericparamslist? type;

@@ -4,7 +4,7 @@ import "fmt"
 
 type Program struct {
 	types     map[string]*Type
-	functions map[string]*Function
+	functions map[string]*Function // функции - глобальные переменные
 	err       error
 }
 
@@ -13,6 +13,15 @@ func NewProgram() *Program {
 		types:     make(map[string]*Type),
 		functions: make(map[string]*Function),
 	}
+}
+
+func (prog *Program) Validate() error {
+	if prog.err != nil {
+		return prog.err
+	}
+
+
+	return nil
 }
 
 func (prog *Program) AddError(err error) {
@@ -30,7 +39,7 @@ func (prog *Program) RegisterType(typename string) (*Type, error) {
 
 	newType := new(Type)
 	prog.types[typename] = newType
-	
+
 	return newType, nil
 }
 
@@ -41,7 +50,7 @@ func (prog *Program) RegisterFunc(funcname string) (*Function, error) {
 
 	newFunc := new(Function)
 	prog.functions[funcname] = newFunc
-	
+
 	return newFunc, nil
 }
 
