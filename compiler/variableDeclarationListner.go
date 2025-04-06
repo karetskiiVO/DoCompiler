@@ -30,13 +30,15 @@ func (l *DoVariableDeclarationListner) EnterFunctionDefinition(ctx *parser.Funct
 	argtypes := make([]string, 0)
 	rettypes := make([]string, 0)
 
+
+	// TODO: роаспарсить тип 
 	for _, argsublist := range ctx.Arglist().AllArgsublist() {
 		argtypes = append(
 			argtypes,
-			slices.Repeat([]string{argsublist.Typename().GetText()}, len(argsublist.AllArgname()))...,
+			slices.Repeat([]string{argsublist.Type_().GetText()}, len(argsublist.AllArgname()))...,
 		)
 	}
-	for _, rettypename := range ctx.Typetuple().AllTypename() {
+	for _, rettypename := range ctx.Typetuple().AllType_() {
 		rettypes = append(rettypes, rettypename.GetText())
 	}
 

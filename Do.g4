@@ -13,13 +13,13 @@ type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefini
 structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield) ';')* '}';
 behavourdefinition: 'behavour' '{' '}';
 
-typetuple: typename? | (typename (',' typename)*);
+typetuple: type? | ('(' type (',' type)* ')');
 arglist: argsublist? | (argsublist (',' argsublist));
-argsublist: argname (',' argname)* typename;
+argsublist: argname (',' argname)* type;
 
-basetypefild: typename genericarglist;
-varfield: fieldname typename;
-globalvarfield: fieldname 'glob' typename;
+basetypefild: type genericarglist;
+varfield: fieldname type;
+globalvarfield: fieldname 'glob' type;
 fieldname: NAME;
 argname: NAME;
 typename: dividedname genericparamslist?; // TODO: лямбды 
