@@ -1,3 +1,3 @@
-package main
+package compiler
 
 const FunctionKeyword = "act"

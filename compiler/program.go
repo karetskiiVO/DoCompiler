@@ -1,4 +1,4 @@
-package main
+package compiler
 
 import (
 	"fmt"
@@ -16,6 +16,18 @@ func NewProgram() *Program {
 		types:     make(map[string]*Type),
 		variables: make(map[string]*Variable),
 	}).init()
+}
+
+func (prog *Program) Types() map[string]*Type {
+	return prog.types
+}
+
+func (prog *Program) Variables() map[string]*Variable {
+	return prog.variables
+}
+
+func (prog *Program) Error () error {
+	return prog.err
 }
 
 func (prog *Program) init() *Program {

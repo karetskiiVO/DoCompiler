@@ -1,10 +1,12 @@
-package main
+package dolistners
 
 import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
+
+	. "github.com/karetskiiVO/DoCompiler/compiler"
 )
 
 type DoTypeDeclarationListener struct {
@@ -14,7 +16,7 @@ type DoTypeDeclarationListener struct {
 }
 
 func NewDoTypeDeclarationListener(program *Program) antlr.ParseTreeListener {
-	if program.err != nil {
+	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}
 
@@ -32,7 +34,7 @@ func (l *DoTypeDeclarationListener) EnterTypeDefinition(ctx *parser.TypeDefiniti
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
 	}
-
+	// TODO: парсить тип
 	// TODO: generics
 	_ = newtype
 }

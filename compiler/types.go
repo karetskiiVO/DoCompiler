@@ -1,4 +1,4 @@
-package main
+package compiler
 
 type TypeName string
 type Type struct {

@@ -1,4 +1,4 @@
-package main
+package dolistners
 
 import (
 	"fmt"
@@ -7,6 +7,9 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
+
+	
+	. "github.com/karetskiiVO/DoCompiler/compiler"
 )
 
 type DoVariableDeclarationListner struct {
@@ -16,7 +19,7 @@ type DoVariableDeclarationListner struct {
 }
 
 func NewDoVariableDeclarationListner(program *Program) antlr.ParseTreeListener {
-	if program.err != nil {
+	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}
 
@@ -29,7 +32,6 @@ func (l *DoVariableDeclarationListner) EnterFunctionDefinition(ctx *parser.Funct
 	// TODO: генерировать массив типов вместо этого
 	argtypes := make([]string, 0)
 	rettypes := make([]string, 0)
-
 
 	// TODO: роаспарсить тип 
 	for _, argsublist := range ctx.Arglist().AllArgsublist() {

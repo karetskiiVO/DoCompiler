@@ -11,6 +11,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
+
+	. "github.com/karetskiiVO/DoCompiler/compiler"
+	. "github.com/karetskiiVO/DoCompiler/compiler/listners"
 )
 
 const typeDescriptorString = `type {{ .Name }}:
@@ -83,7 +86,7 @@ func Compile(srcFiles ...string) {
 		fmt.Println(err)
 	}
 
-	typeinfos := slices.Collect(maps.Values(program.types))
+	typeinfos := slices.Collect(maps.Values(program.Types()))
 	slices.SortFunc(typeinfos, func(fst, snd *Type) int {
 		return strings.Compare(string(fst.Name), string(snd.Name))
 	})
@@ -92,7 +95,7 @@ func Compile(srcFiles ...string) {
 		typeDescriptor.Execute(os.Stdout, typeinfo)
 	}
 
-	variables := slices.Collect(maps.Values(program.variables))
+	variables := slices.Collect(maps.Values(program.Variables()))
 	slices.SortFunc(variables, func(fst, snd *Variable) int {
 		return strings.Compare(string(fst.Name), string(snd.Name))
 	})
