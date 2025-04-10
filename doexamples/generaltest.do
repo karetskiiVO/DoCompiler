@@ -3,5 +3,11 @@ with A struct {}
 with a int
 
 act f () {
-    a = 1
+    a, _ = 1, 3
+}
+
+act main () {
+    tmpPrint()
+    f()
+    tmpPrint()
 }

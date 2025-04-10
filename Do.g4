@@ -29,8 +29,8 @@ genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 statement: assign | expressiontuple; // вот это не работает
 assign: expressiontuplelhv '=' expressiontuplerhv;
 expressiontuple: expression (',' expression)*;
-expression: emptyexpression | variableuse | ('(' expressiontuple ')');
-functioncall: dividedname '(' expressiontuple ')';
+expression: emptyexpression | variableuse | ('(' expressiontuple ')') | constantuse | functioncall;
+functioncall: dividedname '(' expressiontuple? ')';
 
 expressiontuplelhv: expressiontuple;
 expressiontuplerhv: expressiontuple;
