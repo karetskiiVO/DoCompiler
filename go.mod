@@ -1,8 +1,6 @@
 module github.com/karetskiiVO/DoCompiler
 
-go 1.23.0
-
-toolchain go1.23.2
+go 1.23.2
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
@@ -10,6 +8,6 @@ require (
 )
 
 require (
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 )

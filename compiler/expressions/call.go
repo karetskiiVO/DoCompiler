@@ -12,3 +12,7 @@ var _ compilertypes.Expression = (*Call)(nil)
 func (Call) IsLHV() bool {
 	return false
 }
+
+func (c *Call) ReturnTypes() []*compilertypes.Type {
+	panic("unimplemented")
+}

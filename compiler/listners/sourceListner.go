@@ -2,6 +2,7 @@ package dolistners
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -42,26 +43,34 @@ func (l *DoSourceListner) ExitFunctionDefinition(ctx *parser.GlobalVariableDefin
 
 func (l *DoSourceListner) ExitConstantuse(ctx *parser.ConstantuseContext) {
 	var content any
+	contentTypename := ""
 
 	switch {
 	case ctx.Bool_() != nil:
 		content = (ctx.Bool_().BOOL().GetText() == "true")
+		contentTypename = "bool"
 	case ctx.String_() != nil:
 		content = ctx.String_().STRING().GetText() // TODO: отрезать лишнее
+		contentTypename = "string"
 	case ctx.Number() != nil:
 		content, _ = strconv.Atoi(ctx.Number().GetText()) // TODO: хранить не int а numbertype
+		contentTypename = "int"
 	}
 
-	l.expressions = append(l.expressions, expr.NewConst(content))
+	Type, err := l.program.GetType(contentTypename)
+	if err != nil { // TODO: не возможно в проде
+		panic(err)
+	}
+	l.expressions = append(l.expressions, expr.NewConst(content, Type))
 }
 
 func (l *DoSourceListner) ExitVariableuse(ctx *parser.VariableuseContext) {
 	variable, err := l.program.GetVariable(ctx.Dividedname().GetText())
 
 	if err != nil {
-		line := ctx.Dividedname().AllNAME()[0].GetSymbol().GetLine()
-		start := ctx.Dividedname().AllNAME()[0].GetSymbol().GetColumn()
-		stream := ctx.Dividedname().AllNAME()[0].GetSymbol().GetInputStream().GetSourceName()
+		line := ctx.Dividedname().GetStart().GetLine()
+		start := ctx.Dividedname().GetStart().GetColumn()
+		stream := ctx.Dividedname().GetStart().GetInputStream().GetSourceName()
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
 	}
@@ -70,6 +79,47 @@ func (l *DoSourceListner) ExitVariableuse(ctx *parser.VariableuseContext) {
 }
 
 func (l *DoSourceListner) ExitAssign(ctx *parser.AssignContext) {
-	lhvlen, rhvlen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression()), len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
-	
+	lhvLen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
+	rhvLen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
+
+	lhvStart := len(l.expressions) - rhvLen - lhvLen
+	rhvStart := len(l.expressions) - rhvLen
+
+	lhvExpressions := slices.Clone(l.expressions[lhvStart:rhvStart])
+	rhvExpressions := slices.Clone(l.expressions[rhvStart:])
+	l.expressions = l.expressions[:lhvStart]
+
+	for i, lhvExpression := range lhvExpressions {
+		if !lhvExpression.IsLHV() {
+			astexpr := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i]
+
+			line := astexpr.GetStart().GetLine()
+			start := astexpr.GetStart().GetColumn()
+			stream := astexpr.GetStart().GetInputStream().GetSourceName()
+
+			err := fmt.Errorf("`%v` is not rhv expresion", astexpr.GetText())
+			l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		}
+	}
+
+	for i, rhvExpression := range rhvExpressions {
+		if _, ok := rhvExpression.(*expr.Empty); ok {
+			astexpr := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i]
+
+			line := astexpr.GetStart().GetLine()
+			start := astexpr.GetStart().GetColumn()
+			stream := astexpr.GetStart().GetInputStream().GetSourceName()
+
+			err := fmt.Errorf("`%v` empty expression is not allowed here", astexpr.GetText())
+			l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		}
+	}
+
+	// TODO: type assertion & comparetypes
+
+	l.expressions = append(l.expressions, expr.NewAssign(lhvExpressions, rhvExpressions))
+}
+
+func (l *DoSourceListner) ExitEmptyexpression(*parser.EmptyexpressionContext) {
+	l.expressions = append(l.expressions, expr.NewEmpty())
 }

@@ -38,16 +38,3 @@ func (l *DoTypeDeclarationListener) EnterTypeDefinition(ctx *parser.TypeDefiniti
 	// TODO: generics
 	_ = newtype
 }
-
-// func (l *DoTypeDeclarationListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
-// 	newfunc, err := l.program.RegisterFunc(ctx.NAME().GetText())
-// 	if err != nil {
-// 		line := ctx.GetStart().GetLine()
-// 		start := ctx.NAME().GetSourceInterval().Start
-// 		l.program.AddError(fmt.Errorf("%v:%v: %w", line, start, err))
-// 	}
-// 	// TODO: generics
-// 	_ = newfunc
-// }
-
-// TODO: глобальные переменные и константы

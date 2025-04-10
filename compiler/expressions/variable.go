@@ -1,6 +1,6 @@
 package expr
 
-import "github.com/karetskiiVO/DoCompiler/compiler/types"
+import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 
 type Variable struct {
 	Variable *compilertypes.Variable
@@ -16,4 +16,8 @@ func NewVariable(variable *compilertypes.Variable) *Variable {
 
 func (v Variable) IsLHV() bool {
 	return !v.Variable.IsConstant
+}
+
+func (v *Variable) ReturnTypes() []*compilertypes.Type {
+	return []*compilertypes.Type{v.Variable.VarType}
 }

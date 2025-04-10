@@ -26,7 +26,7 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: assign | expressiontuple;
+statement: assign | expressiontuple; // вот это не работает
 assign: expressiontuplelhv '=' expressiontuplerhv;
 expressiontuple: expression (',' expression)*;
 expression: emptyexpression | variableuse | ('(' expressiontuple ')');

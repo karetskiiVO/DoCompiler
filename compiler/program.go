@@ -34,6 +34,14 @@ func (prog *Program) Error() error {
 
 func (prog *Program) init() *Program {
 	prog.RegisterType("int")
+	prog.RegisterType("bool")
+	prog.RegisterType("string")
+
+	/* временное решение */
+	prog.RegisterGlobalVariable("tmpOut", "int")
+	prog.RegisterType("act()()")
+	prog.RegisterGlobalVariable("tmpPrint", "act()()")
+	/*********************/
 
 	return prog
 }
@@ -42,6 +50,15 @@ func (prog *Program) Validate() error {
 	if prog.err != nil {
 		return prog.err
 	}
+
+	mainfunc, ok := prog.variables["main"]
+	if !ok {
+		return fmt.Errorf("program does not contains `main`")
+	}
+	if mainfunc.VarType.Name != "act()()" {
+		return fmt.Errorf("`main` must have type act()()")
+	}
+
 
 	return nil
 }
@@ -58,7 +75,7 @@ func (prog *Program) RegisterType(typename string) (*compilertypes.Type, error) 
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
-	
+
 	newType := compilertypes.NewType(compilertypes.TypeName(typename))
 	prog.types[typename] = newType
 

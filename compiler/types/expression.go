@@ -1,5 +1,6 @@
 package compilertypes
 
 type Expression interface {
-	IsLHV () bool
+	IsLHV() bool
+	ReturnTypes() []*Type
 }
