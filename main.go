@@ -12,16 +12,17 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
 
-	. "github.com/karetskiiVO/DoCompiler/compiler"
-	. "github.com/karetskiiVO/DoCompiler/compiler/listners"
+	"github.com/karetskiiVO/DoCompiler/compiler"
+	"github.com/karetskiiVO/DoCompiler/compiler/types"
+	dolistners "github.com/karetskiiVO/DoCompiler/compiler/listners"
 )
 
 const typeDescriptorString = `type {{ .Name }}:
 	.isfunc         = {{ .IsFunction }}
 	.isbehavour     = {{ .IsBehavour }}
-{{ if .IsBehavour }}
+{{ if .IsBehavour -}}
 	.isselfbehavour = {{ .SelfBehavour }}
-{{ end }}
+{{- end }}
 `
 const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType.Name }}
 `
@@ -64,20 +65,20 @@ func Compile(srcFiles ...string) {
 		listners.roots = append(listners.roots, parser.NewDoParser(stream).Program())
 	}
 
-	program := NewProgram()
+	program := compiler.NewProgram()
 
 	listners.Set(func(int) antlr.ParseTreeListener {
-		return NewDoTypeDeclarationListener(program)
+		return dolistners.NewDoTypeDeclarationListener(program)
 	})
 	listners.Exec()
 
 	listners.Set(func(int) antlr.ParseTreeListener {
-		return NewDoTypeDefinitionListener(program)
+		return dolistners.NewDoTypeDefinitionListener(program)
 	})
 	listners.Exec()
 
 	listners.Set(func(int) antlr.ParseTreeListener {
-		return NewDoVariableDeclarationListner(program)
+		return dolistners.NewDoVariableDeclarationListner(program)
 	})
 	listners.Exec()
 
@@ -87,7 +88,7 @@ func Compile(srcFiles ...string) {
 	}
 
 	typeinfos := slices.Collect(maps.Values(program.Types()))
-	slices.SortFunc(typeinfos, func(fst, snd *Type) int {
+	slices.SortFunc(typeinfos, func(fst, snd *compilertypes.Type) int {
 		return strings.Compare(string(fst.Name), string(snd.Name))
 	})
 
@@ -96,7 +97,7 @@ func Compile(srcFiles ...string) {
 	}
 
 	variables := slices.Collect(maps.Values(program.Variables()))
-	slices.SortFunc(variables, func(fst, snd *Variable) int {
+	slices.SortFunc(variables, func(fst, snd *compilertypes.Variable) int {
 		return strings.Compare(string(fst.Name), string(snd.Name))
 	})
 

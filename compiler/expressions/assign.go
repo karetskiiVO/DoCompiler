@@ -1,10 +1,14 @@
 package expr
 
+import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+
 type Assign struct {
-	Lhv []Expression
-	Rhv []Expression
+	Lhv []compilertypes.Expression
+	Rhv []compilertypes.Expression
 }
 
-func NewAssign() (*Assign, error) {
-	return nil, nil
+var _ compilertypes.Expression = (*Assign)(nil)
+
+func (Assign) IsLHV() bool {
+	return false
 }

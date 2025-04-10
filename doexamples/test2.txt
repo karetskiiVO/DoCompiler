@@ -2,4 +2,4 @@ with A struct {}
 
 with B behavour {}
 
-act fAB (a1, a2, a3 A, b B) (A, A, *B, int) {}
+act fAB (a1, a2, a3 A, b B) (A, A, * B, int) {}

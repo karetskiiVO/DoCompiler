@@ -6,16 +6,16 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
 
-	. "github.com/karetskiiVO/DoCompiler/compiler"
+	"github.com/karetskiiVO/DoCompiler/compiler"
 )
 
 type DoTypeDeclarationListener struct {
 	*parser.BaseDoListener
 
-	program  *Program
+	program  *compiler.Program
 }
 
-func NewDoTypeDeclarationListener(program *Program) antlr.ParseTreeListener {
+func NewDoTypeDeclarationListener(program *compiler.Program) antlr.ParseTreeListener {
 	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}

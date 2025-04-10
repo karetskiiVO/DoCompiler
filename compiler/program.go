@@ -3,30 +3,32 @@ package compiler
 import (
 	"fmt"
 	"strings"
+
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
 type Program struct {
-	types     map[string]*Type
-	variables map[string]*Variable
+	types     map[string]*compilertypes.Type
+	variables map[string]*compilertypes.Variable
 	err       error
 }
 
 func NewProgram() *Program {
 	return (&Program{
-		types:     make(map[string]*Type),
-		variables: make(map[string]*Variable),
+		types:     make(map[string]*compilertypes.Type),
+		variables: make(map[string]*compilertypes.Variable),
 	}).init()
 }
 
-func (prog *Program) Types() map[string]*Type {
+func (prog *Program) Types() map[string]*compilertypes.Type {
 	return prog.types
 }
 
-func (prog *Program) Variables() map[string]*Variable {
+func (prog *Program) Variables() map[string]*compilertypes.Variable {
 	return prog.variables
 }
 
-func (prog *Program) Error () error {
+func (prog *Program) Error() error {
 	return prog.err
 }
 
@@ -52,31 +54,22 @@ func (prog *Program) AddError(err error) {
 	}
 }
 
-func (prog *Program) RegisterType(typename string) (*Type, error) {
+func (prog *Program) RegisterType(typename string) (*compilertypes.Type, error) {
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
-
-	newType := NewType(TypeName(typename))
+	
+	newType := compilertypes.NewType(compilertypes.TypeName(typename))
 	prog.types[typename] = newType
 
 	return newType, nil
 }
 
-// func (prog *Program) RegisterFunc(funcname string) (*Function, error) {
-// 	if _, ok := prog.functions[funcname]; ok {
-// 		return nil, fmt.Errorf("function %v is already exist", funcname)
-// 	}
-// 	newFunc := new(Function)
-// 	prog.functions[funcname] = newFunc
-// 	return newFunc, nil
-// }
-
-func (prog *Program) GetType(typename string) (*Type, error) {
+func (prog *Program) GetType(typename string) (*compilertypes.Type, error) {
 	val, ok := prog.types[typename]
 	if !ok {
 		if strings.HasPrefix(typename, FunctionKeyword) {
-			val = NewType(TypeName(typename))
+			val = compilertypes.NewType(compilertypes.TypeName(typename))
 			prog.types[typename] = val
 
 			val.IsFunction = true
@@ -106,7 +99,7 @@ func (prog *Program) GetType(typename string) (*Type, error) {
 	return val, nil
 }
 
-func (prog *Program) RegisterGlobalVariable(varname, typename string) (*Variable, error) {
+func (prog *Program) RegisterGlobalVariable(varname, typename string) (*compilertypes.Variable, error) {
 	var found bool
 	_, found = prog.types[varname]
 	if found {
@@ -114,7 +107,7 @@ func (prog *Program) RegisterGlobalVariable(varname, typename string) (*Variable
 	}
 	_, found = prog.variables[varname]
 	if found {
-		return nil, fmt.Errorf("%v is akready declared in this scope", varname)
+		return nil, fmt.Errorf("%v is already declared in this scope", varname)
 	}
 
 	vartype, err := prog.GetType(typename)
@@ -122,16 +115,18 @@ func (prog *Program) RegisterGlobalVariable(varname, typename string) (*Variable
 		return nil, err
 	}
 
-	variable := NewVariable(VarName(varname), vartype)
+	variable := compilertypes.NewVariable(compilertypes.VarName(varname), vartype)
+	variable.IsConstant = vartype.IsFunction
 	prog.variables[varname] = variable
 
 	return variable, nil
 }
 
-// func (prog *Program) GetFunc(funcname string) (*Function, error) {
-// 	val, ok := prog.functions[funcname]
-// 	if !ok {
-// 		return nil, fmt.Errorf("can't find %v", funcname)
-// 	}
-// 	return val, nil
-// }
+func (prog *Program) GetVariable(varname string) (*compilertypes.Variable, error) {
+	variable, ok := prog.variables[varname]
+	if !ok {
+		return nil, fmt.Errorf("%v is not declarated in this scope", varname)
+	}
+
+	return variable, nil
+}

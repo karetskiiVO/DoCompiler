@@ -5,7 +5,7 @@ program: definition* EOF;
 definition: functionDefinition | typeDefinition | globalVariableDefinition; // TODO: метод и глобальные переменные
 
 globalVariableDefinition: 'var' NAME typename; /* expression */
-functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple '{' '}';
+functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple '{' statement* '}';
 typeDefinition: 'with' NAME genericparamslist? type;
 
 type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefinition; 
@@ -25,7 +25,24 @@ argname: NAME;
 typename: dividedname genericparamslist?; // TODO: лямбды 
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
+
+statement: assign | expressiontuple;
+assign: expressiontuplelhv '=' expressiontuplerhv;
+expressiontuple: expression (',' expression)*;
+expression: emptyexpression | variableuse | ('(' expressiontuple ')');
+functioncall: dividedname '(' expressiontuple ')';
+
+expressiontuplelhv: expressiontuple;
+expressiontuplerhv: expressiontuple;
+variableuse: dividedname;
+constantuse: bool | string | number;
+
+emptyexpression: '_';
 dividedname: NAME ('.' NAME)*;
+
+bool: BOOL;
+string: STRING;
+number: NUMBER;
 
 
 BOOL: ('true' | 'false');

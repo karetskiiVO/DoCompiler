@@ -1,4 +1,4 @@
-package compiler
+package compilertypes
 
 type TypeName string
 type Type struct {
@@ -23,9 +23,12 @@ func NewType(typename TypeName) *Type {
 }
 
 type VarName string
+// TODO: Разбить по итерфейсам
 type Variable struct {
-	Name    VarName
-	VarType *Type
+	Name        VarName
+	VarType     *Type
+	IsConstant  bool
+	Expressions []Expression
 }
 
 func NewVariable(varname VarName, vartype *Type) *Variable {

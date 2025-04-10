@@ -9,16 +9,16 @@ import (
 	"github.com/karetskiiVO/DoCompiler/parser"
 
 	
-	. "github.com/karetskiiVO/DoCompiler/compiler"
+	"github.com/karetskiiVO/DoCompiler/compiler"
 )
 
 type DoVariableDeclarationListner struct {
 	*parser.BaseDoListener
 
-	program *Program
+	program *compiler.Program
 }
 
-func NewDoVariableDeclarationListner(program *Program) antlr.ParseTreeListener {
+func NewDoVariableDeclarationListner(program *compiler.Program) antlr.ParseTreeListener {
 	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}
