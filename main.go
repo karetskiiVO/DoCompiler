@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go/types"
 	"maps"
 	"os"
 	"slices"
@@ -13,8 +14,8 @@ import (
 	"github.com/karetskiiVO/DoCompiler/parser"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
-	"github.com/karetskiiVO/DoCompiler/compiler/types"
 	dolistners "github.com/karetskiiVO/DoCompiler/compiler/listners"
+	"github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
 const typeDescriptorString = `type {{ .Name }}:
@@ -24,7 +25,7 @@ const typeDescriptorString = `type {{ .Name }}:
 	.isselfbehavour = {{ .SelfBehavour }}
 {{- end }}
 `
-const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType.Name }}
+const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType }}
 `
 
 var typeDescriptor = template.Must(template.New("typedescriptor").Parse(typeDescriptorString))
@@ -88,8 +89,8 @@ func Compile(srcFiles ...string) {
 	}
 
 	typeinfos := slices.Collect(maps.Values(program.Types()))
-	slices.SortFunc(typeinfos, func(fst, snd *compilertypes.Type) int {
-		return strings.Compare(string(fst.Name), string(snd.Name))
+	slices.SortFunc(typeinfos, func(fst, snd types.Type) int {
+		return strings.Compare(string(fst.String()), string(fst.String()))
 	})
 
 	for _, typeinfo := range typeinfos {

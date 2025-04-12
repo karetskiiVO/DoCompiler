@@ -1,6 +1,10 @@
 package expr
 
-import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+import (
+	"go/types"
+
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+)
 
 type Empty struct{}
 
@@ -12,6 +16,6 @@ func NewEmpty() *Empty {
 
 func (Empty) IsLHV() bool { return true }
 
-func (e *Empty) ReturnTypes() []*compilertypes.Type {
-	return []*compilertypes.Type{}
+func (e *Empty) ReturnType() types.Type {
+	panic("implement")
 }

@@ -1,6 +1,5 @@
 package hello:
-  var   a          int
-  func  f          func()
+  var   f          func()
   func  init       func()
   var   init$guard bool
   func  main       func()
@@ -14,16 +13,18 @@ func init():
 	if t0 goto 2 else 1
 1:                                                           init.start P:1 S:1
 	*init$guard = true:bool
-	t1 = fmt.init()                                                      ()
-	*a = 1:int
+	*f = init$1
 	jump 2
 2:                                                            init.done P:2 S:0
 	return
 
-# Name: hello.f
+# Name: hello.main
 # Package: hello
-# Location: .\example\test\test1.txt:9:6
-func f():
+# Location: .\example\test\test1.txt:5:6
+func main():
+0:                                                                entry P:0 S:0
+	return
+
 0:                                                                entry P:0 S:0
 	*a = 2:int
 	*a = 1:int

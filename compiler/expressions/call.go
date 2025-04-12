@@ -1,6 +1,10 @@
 package expr
 
-import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+import (
+	"go/types"
+
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+)
 
 type Call struct {
 	Function  compilertypes.Variable
@@ -13,6 +17,6 @@ func (Call) IsLHV() bool {
 	return false
 }
 
-func (c *Call) ReturnTypes() []*compilertypes.Type {
+func (c *Call) ReturnType() types.Type {
 	panic("unimplemented")
 }

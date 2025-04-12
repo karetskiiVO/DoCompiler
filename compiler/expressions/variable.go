@@ -1,6 +1,10 @@
 package expr
 
-import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+import (
+	"go/types"
+
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+)
 
 type Variable struct {
 	Variable *compilertypes.Variable
@@ -18,6 +22,6 @@ func (v Variable) IsLHV() bool {
 	return !v.Variable.IsConstant
 }
 
-func (v *Variable) ReturnTypes() []*compilertypes.Type {
-	return []*compilertypes.Type{v.Variable.VarType}
+func (v *Variable) ReturnType() types.Type {
+	panic("implement")
 }

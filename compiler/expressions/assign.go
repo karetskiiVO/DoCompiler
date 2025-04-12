@@ -1,6 +1,10 @@
 package expr
 
-import compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+import (
+	"go/types"
+
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+)
 
 type Assign struct {
 	Lhv []compilertypes.Expression
@@ -20,6 +24,6 @@ func (Assign) IsLHV() bool {
 	return false
 }
 
-func (a *Assign) ReturnTypes() []*compilertypes.Type {
-	return []*compilertypes.Type{}
+func (a *Assign) ReturnType() types.Type {
+	panic("implement")
 }

@@ -2,30 +2,23 @@ package compiler
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
 
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
 type Program struct {
-	types     map[string]*compilertypes.Type
+	types     map[string]*types.Type
 	variables map[string]*compilertypes.Variable
 	err       error
 }
 
 func NewProgram() *Program {
 	return (&Program{
-		types:     make(map[string]*compilertypes.Type),
+		types:     make(map[string]*types.Type),
 		variables: make(map[string]*compilertypes.Variable),
 	}).init()
-}
-
-func (prog *Program) Types() map[string]*compilertypes.Type {
-	return prog.types
-}
-
-func (prog *Program) Variables() map[string]*compilertypes.Variable {
-	return prog.variables
 }
 
 func (prog *Program) Error() error {
@@ -33,14 +26,14 @@ func (prog *Program) Error() error {
 }
 
 func (prog *Program) init() *Program {
-	prog.RegisterType("int")
-	prog.RegisterType("bool")
-	prog.RegisterType("string")
+	// prog.RegisterType("int")
+	// prog.RegisterType("bool")
+	// prog.RegisterType("string")
 
-	/* временное решение */
-	prog.RegisterGlobalVariable("tmpOut", "int")
-	prog.RegisterType("act()()")
-	prog.RegisterGlobalVariable("tmpPrint", "act()()")
+	// /* временное решение */
+	// prog.RegisterGlobalVariable("tmpOut", "int")
+	// prog.RegisterType("act()()")
+	// prog.RegisterGlobalVariable("tmpPrint", "act()()")
 	/*********************/
 
 	return prog
@@ -50,15 +43,6 @@ func (prog *Program) Validate() error {
 	if prog.err != nil {
 		return prog.err
 	}
-
-	mainfunc, ok := prog.variables["main"]
-	if !ok {
-		return fmt.Errorf("program does not contains `main`")
-	}
-	if mainfunc.VarType.Name != "act()()" {
-		return fmt.Errorf("`main` must have type act()()")
-	}
-
 
 	return nil
 }
@@ -71,79 +55,16 @@ func (prog *Program) AddError(err error) {
 	}
 }
 
-func (prog *Program) RegisterType(typename string) (*compilertypes.Type, error) {
+func (prog *Program) RegisterType(typename string) (*types.Type, error) {
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
 
-	newType := compilertypes.NewType(compilertypes.TypeName(typename))
+	if strings.HasPrefix("act(", ) {}
+
+
+	// newType := compilertypes.NewType(compilertypes.TypeName(typename))
 	prog.types[typename] = newType
 
 	return newType, nil
-}
-
-func (prog *Program) GetType(typename string) (*compilertypes.Type, error) {
-	val, ok := prog.types[typename]
-	if !ok {
-		if strings.HasPrefix(typename, FunctionKeyword) {
-			val = compilertypes.NewType(compilertypes.TypeName(typename))
-			prog.types[typename] = val
-
-			val.IsFunction = true
-			typeTupples, _ := strings.CutPrefix(typename, FunctionKeyword)
-			inputTupple, outputTupple, _ := strings.Cut(typeTupples[1:len(typeTupples)-1], ")(")
-
-			inputs := strings.Split(inputTupple, ",")
-			outputs := strings.Split(outputTupple, ",")
-
-			for _, input_ := range inputs {
-				_, err := prog.GetType(input_)
-				if err != nil {
-					return nil, err
-				}
-			}
-			for _, output := range outputs {
-				_, err := prog.GetType(output)
-				if err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			return nil, fmt.Errorf("can't find %v", typename)
-		}
-	}
-
-	return val, nil
-}
-
-func (prog *Program) RegisterGlobalVariable(varname, typename string) (*compilertypes.Variable, error) {
-	var found bool
-	_, found = prog.types[varname]
-	if found {
-		return nil, fmt.Errorf("%v is a type name", varname)
-	}
-	_, found = prog.variables[varname]
-	if found {
-		return nil, fmt.Errorf("%v is already declared in this scope", varname)
-	}
-
-	vartype, err := prog.GetType(typename)
-	if err != nil {
-		return nil, err
-	}
-
-	variable := compilertypes.NewVariable(compilertypes.VarName(varname), vartype)
-	variable.IsConstant = vartype.IsFunction
-	prog.variables[varname] = variable
-
-	return variable, nil
-}
-
-func (prog *Program) GetVariable(varname string) (*compilertypes.Variable, error) {
-	variable, ok := prog.variables[varname]
-	if !ok {
-		return nil, fmt.Errorf("%v is not declarated in this scope", varname)
-	}
-
-	return variable, nil
 }
