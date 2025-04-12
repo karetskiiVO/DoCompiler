@@ -6,6 +6,8 @@ github.com/go-llvm/llvm v0.0.0-20141101215015-c8914dc52445/go.mod h1:ev4u4nD7KnG
 github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/jessevdk/go-flags v1.6.1 h1:Cvu5U8UGrLay1rZfv/zP7iLpSHGUZ/Ou68T0iX1bBK4=
 github.com/jessevdk/go-flags v1.6.1/go.mod h1:Mk8T1hIAWpOiJiHa9rJASDK2UGWji0EuPGBnNLMooyc=
+github.com/karetskiiVO/slices v0.0.0-20250412225157-64ac13a78e5f h1:CvnT/Tpu3jwAnOeApAsw67RhLVFwKLqFKV0ovMfOJig=
+github.com/karetskiiVO/slices v0.0.0-20250412225157-64ac13a78e5f/go.mod h1:GkAOgm64a32UehuvhFHGwDj4P/rkP5NZ0WGeJYSG+fI=
 github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=

@@ -3,10 +3,10 @@ package compiler
 import (
 	"fmt"
 	"go/types"
-	"slices"
 	"strings"
 
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
+	"github.com/karetskiiVO/slices"
 )
 
 type Program struct {
@@ -57,6 +57,16 @@ func (prog *Program) AddError(err error) {
 }
 
 func (prog *Program) RegisterType(typename string) (*types.Type, error) {
+	registerType := func(typename_ string) *types.Type {
+		t, err := prog.RegisterType(typename_)
+		if err != nil {
+			prog.AddError(err)
+			return nil
+		}
+
+		return t
+	}
+
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
@@ -70,7 +80,18 @@ func (prog *Program) RegisterType(typename string) (*types.Type, error) {
 		inputTypenames := strings.Split(inputsig, ",")
 		outputTypenames := strings.Split(outputsig, ",")
 
-		
+		inputTypes := slices.Map(inputTypenames, registerType)
+		outputTypes := slices.Map(outputTypenames, registerType)
+
+		// TODO:
+		*newType = types.NewSignatureType(
+			nil,
+			[]*types.TypeParam{},
+			[]*types.TypeParam{},
+			nil,
+			nil,
+			false,
+		)
 	}
 
 	return newType, nil
