@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
@@ -60,11 +61,17 @@ func (prog *Program) RegisterType(typename string) (*types.Type, error) {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
 
-	if strings.HasPrefix("act(", ) {}
-
-
-	// newType := compilertypes.NewType(compilertypes.TypeName(typename))
+	newType := new(types.Type)
 	prog.types[typename] = newType
+
+	if sig, ok := strings.CutPrefix(typename, "act("); ok {
+		inputsig, outputsig, _ := strings.Cut(typename[:len(typename)-1], ")(")
+
+		inputTypenames := strings.Split(inputsig, ",")
+		outputTypenames := strings.Split(outputsig, ",")
+
+		
+	}
 
 	return newType, nil
 }
