@@ -75,7 +75,7 @@ func (prog *Program) RegisterType(typename string) (*types.Type, error) {
 	prog.types[typename] = newType
 
 	if sig, ok := strings.CutPrefix(typename, "act("); ok {
-		inputsig, outputsig, _ := strings.Cut(typename[:len(typename)-1], ")(")
+		inputsig, outputsig, _ := strings.Cut(sig[:len(typename)-1], ")(")
 
 		inputTypenames := strings.Split(inputsig, ",")
 		outputTypenames := strings.Split(outputsig, ",")
