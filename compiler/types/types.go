@@ -1,20 +1,21 @@
 package compilertypes
 
-import "go/types"
+import "tinygo.org/x/go-llvm"
 
-type VarName string
+type DoType = llvm.Type
 
-// TODO: Разбить по итерфейсам
-type Variable struct {
-	Name        VarName
-	VarType     types.Type
-	IsConstant  bool
-	Expressions []Expression
+func NewType() *llvm.Type {
+	return &llvm.Type{}
 }
 
-func NewVariable(varname VarName, vartype types.Type) *Variable {
+type Variable struct {
+	Name string
+	Type *DoType
+}
+
+func NewVariable(varname string, vartype *llvm.Type) *Variable {
 	return &Variable{
-		Name:    varname,
-		VarType: vartype,
+		Name: varname,
+		Type: vartype,
 	}
 }

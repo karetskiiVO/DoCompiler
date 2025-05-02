@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"go/types"
 	"maps"
 	"os"
 	"slices"
@@ -15,7 +14,7 @@ import (
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 	dolistners "github.com/karetskiiVO/DoCompiler/compiler/listners"
-	"github.com/karetskiiVO/DoCompiler/compiler/types"
+	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
 const typeDescriptorString = `type {{ .Name }}:
@@ -89,7 +88,7 @@ func Compile(srcFiles ...string) {
 	}
 
 	typeinfos := slices.Collect(maps.Values(program.Types()))
-	slices.SortFunc(typeinfos, func(fst, snd types.Type) int {
+	slices.SortFunc(typeinfos, func(fst, snd *compilertypes.DoType) int {
 		return strings.Compare(string(fst.String()), string(fst.String()))
 	})
 

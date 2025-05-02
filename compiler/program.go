@@ -2,22 +2,24 @@ package compiler
 
 import (
 	"fmt"
-	"go/types"
 	"strings"
 
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 	"github.com/karetskiiVO/slices"
+	"tinygo.org/x/go-llvm"
 )
 
 type Program struct {
-	types     map[string]*types.Type
+	// TODO: таблица типов и видимостей
+	types     map[string]*compilertypes.DoType
 	variables map[string]*compilertypes.Variable
+	ctx       llvm.Context
 	err       error
 }
 
 func NewProgram() *Program {
 	return (&Program{
-		types:     make(map[string]*types.Type),
+		types:     make(map[string]*compilertypes.DoType),
 		variables: make(map[string]*compilertypes.Variable),
 	}).init()
 }
@@ -56,43 +58,113 @@ func (prog *Program) AddError(err error) {
 	}
 }
 
-func (prog *Program) RegisterType(typename string) (*types.Type, error) {
-	registerType := func(typename_ string) *types.Type {
-		t, err := prog.RegisterType(typename_)
-		if err != nil {
-			prog.AddError(err)
-			return nil
-		}
+func isFuncType(typename string) bool {
+	return strings.HasPrefix(typename, FunctionKeyword+"(")
+}
 
-		return t
-	}
+func isTypeTupple(typename string) bool {
+	return strings.HasPrefix(typename, "(")
+}
 
+func (prog *Program) RegisterType(typename string) (*compilertypes.DoType, error) {
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
 
-	newType := new(types.Type)
-	prog.types[typename] = newType
-
-	if sig, ok := strings.CutPrefix(typename, "act("); ok {
-		inputsig, outputsig, _ := strings.Cut(sig[:len(typename)-1], ")(")
-
-		inputTypenames := strings.Split(inputsig, ",")
-		outputTypenames := strings.Split(outputsig, ",")
-
-		inputTypes := slices.Map(inputTypenames, registerType)
-		outputTypes := slices.Map(outputTypenames, registerType)
-
-		// TODO:
-		*newType = types.NewSignatureType(
-			nil,
-			[]*types.TypeParam{},
-			[]*types.TypeParam{},
-			nil,
-			nil,
-			false,
-		)
+	if isFuncType(typename) {
+		return prog.registerFuncType(typename)
 	}
 
-	return newType, nil
+	if isTypeTupple(typename) {
+		return prog.registerTypeTupple(typename)
+	}
+
+	// TODO: struct, behovour and so on
+
+	res := new(compilertypes.DoType)
+	prog.types[typename] = res
+	return res, nil
+}
+
+func (prog *Program) registerFuncType(typename string) (*compilertypes.DoType, error) {
+	// Убераем лишнее
+	preparedTypename, _ := strings.CutPrefix(typename, FunctionKeyword+"(")
+
+	argTypenames, retTuple, _ := strings.Cut(preparedTypename, ")")
+
+	var err error
+	typeConverter := func(typename string) compilertypes.DoType {
+		res, locerr := prog.GetType(typename)
+
+		if locerr != nil {
+			if err == nil {
+				err = locerr
+			} else {
+				err = fmt.Errorf("%w, %w", err, locerr)
+			}
+		}
+
+		return *res
+	}
+	retType, err := prog.GetType(retTuple)
+	argTypes := slices.Map(strings.Split(argTypenames, ","), typeConverter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	res := new(compilertypes.DoType)
+	*res = llvm.FunctionType(*retType, argTypes, false)
+	prog.types[typename] = res
+
+	return res, nil
+}
+
+func (prog *Program) registerTypeTupple(typename string) (*compilertypes.DoType, error) {
+	preparedTypename := (string)(([]byte)(typename)[1 : len(typename)-1])
+
+	var err error
+	typeConverter := func(typename string) compilertypes.DoType {
+		res, locerr := prog.GetType(typename)
+
+		if locerr != nil {
+			if err == nil {
+				err = locerr
+			} else {
+				err = fmt.Errorf("%w, %w", err, locerr)
+			}
+		}
+
+		return *res
+	}
+	types := slices.Map(strings.Split(preparedTypename, ","), typeConverter)
+	res := new(compilertypes.DoType)
+	*res = llvm.StructType(types, false)
+
+	return res, nil
+}
+
+func (prog *Program) GetType(typename string) (*compilertypes.DoType, error) {
+	res, ok := prog.types[typename]
+	if ok {
+		return res, nil
+	}
+
+	if !ok && isFuncType(typename) {
+		return prog.registerFuncType(typename)
+	}
+
+	if !ok && isTypeTupple(typename) {
+		return prog.registerTypeTupple(typename)
+	}
+
+	return nil, fmt.Errorf("type %v is not declared in this scope", typename)
+}
+
+func (prog Program) Types() map[string]*compilertypes.DoType {
+	return prog.types
+}
+
+func (prog Program) Variables() map[string]*compilertypes.Variable {
+	return prog.variables
 }
