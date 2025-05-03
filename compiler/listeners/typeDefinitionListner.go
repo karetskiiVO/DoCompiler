@@ -1,4 +1,4 @@
-package dolistners
+package doListeners
 
 import (
 	"github.com/antlr4-go/antlr/v4"
@@ -10,7 +10,7 @@ import (
 type DoDefenitionListener struct {
 	*parser.BaseDoListener
 
-	program  *compiler.Program
+	program *compiler.Program
 }
 
 func NewDoTypeDefinitionListener(program *compiler.Program) antlr.ParseTreeListener {
@@ -19,6 +19,6 @@ func NewDoTypeDefinitionListener(program *compiler.Program) antlr.ParseTreeListe
 	}
 
 	return &DoDefenitionListener{
-		program:  program,
+		program: program,
 	}
 }

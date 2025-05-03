@@ -11,7 +11,7 @@ import (
 	"github.com/karetskiiVO/slices"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
-	dolistners "github.com/karetskiiVO/DoCompiler/compiler/listners"
+	doListeners "github.com/karetskiiVO/DoCompiler/compiler/Listeners"
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
@@ -47,9 +47,9 @@ func main() {
 }
 
 func Compile(srcFiles ...string) {
-	listners := &Listners{
-		listners: make([]antlr.ParseTreeListener, len(srcFiles)),
-		roots:    make([]parser.IProgramContext, 0, len(srcFiles)),
+	Listeners := &Listeners{
+		Listeners: make([]antlr.ParseTreeListener, len(srcFiles)),
+		roots:     make([]parser.IProgramContext, 0, len(srcFiles)),
 	}
 	for _, fileName := range srcFiles {
 		input, err := antlr.NewFileStream(fileName)
@@ -60,25 +60,30 @@ func Compile(srcFiles ...string) {
 
 		lexer := parser.NewDoLexer(input)
 		stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-		listners.roots = append(listners.roots, parser.NewDoParser(stream).Program())
+		Listeners.roots = append(Listeners.roots, parser.NewDoParser(stream).Program())
 	}
 
 	program := compiler.NewProgram()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoTypeDeclarationListener(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoTypeDeclarationListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoTypeDefinitionListener(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoTypeDefinitionListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoVariableDeclarationListner(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoVariableDeclarationListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
+
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoSourceListener(program)
+	})
+	Listeners.Exec()
 
 	err := program.Validate()
 	if err != nil {

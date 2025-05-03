@@ -1,4 +1,4 @@
-package dolistners
+package doListeners
 
 import (
 	"fmt"
@@ -10,23 +10,23 @@ import (
 	"github.com/karetskiiVO/DoCompiler/compiler"
 )
 
-type DoVariableDeclarationListner struct {
+type DoVariableDeclarationListener struct {
 	*parser.BaseDoListener
 
 	program *compiler.Program
 }
 
-func NewDoVariableDeclarationListner(program *compiler.Program) antlr.ParseTreeListener {
+func NewDoVariableDeclarationListener(program *compiler.Program) antlr.ParseTreeListener {
 	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}
 
-	return &DoVariableDeclarationListner{
+	return &DoVariableDeclarationListener{
 		program: program,
 	}
 }
 
-func (l *DoVariableDeclarationListner) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
+func (l *DoVariableDeclarationListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	funcname := ctx.NAME().GetText()
 
 	argTypenames := make([]string, 0)
@@ -54,9 +54,10 @@ func (l *DoVariableDeclarationListner) EnterFunctionDefinition(ctx *parser.Funct
 		stream := ctx.NAME().GetSymbol().GetInputStream().GetSourceName()
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		return
 	}
 }
 
-func (l *DoVariableDeclarationListner) EnterGlobalVariableDefinition(ctx *parser.GlobalVariableDefinitionContext) {
+func (l *DoVariableDeclarationListener) EnterGlobalVariableDefinition(ctx *parser.GlobalVariableDefinitionContext) {
 
 }

@@ -1,4 +1,4 @@
-package dolistners
+package doListeners
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 type DoTypeDeclarationListener struct {
 	*parser.BaseDoListener
 
-	program  *compiler.Program
+	program *compiler.Program
 }
 
 func NewDoTypeDeclarationListener(program *compiler.Program) antlr.ParseTreeListener {
@@ -33,6 +33,7 @@ func (l *DoTypeDeclarationListener) EnterTypeDefinition(ctx *parser.TypeDefiniti
 		stream := ctx.NAME().GetSymbol().GetInputStream().GetSourceName()
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		return
 	}
 	// TODO: парсить тип
 	// TODO: generics

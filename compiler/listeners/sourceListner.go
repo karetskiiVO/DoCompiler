@@ -1,8 +1,7 @@
-package dolistners
+package doListeners
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/antlr4-go/antlr/v4"
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
@@ -12,24 +11,24 @@ import (
 	"github.com/karetskiiVO/DoCompiler/compiler"
 )
 
-type DoSourceListner struct {
+type DoSourceListener struct {
 	*parser.BaseDoListener
 
 	function *compilertypes.Function
 	program  *compiler.Program
 }
 
-func NewDoSourceListner(program *compiler.Program) antlr.ParseTreeListener {
+func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
 	if program.Error() != nil {
 		return new(parser.BaseDoListener)
 	}
 
-	return &DoSourceListner{
+	return &DoSourceListener{
 		program: program,
 	}
 }
 
-func (l *DoSourceListner) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
+func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	funcname := ctx.NAME().GetText() // Объвить нужные переменные
 
 	function, err := l.program.GetFunction(funcname)
@@ -39,18 +38,19 @@ func (l *DoSourceListner) EnterFunctionDefinition(ctx *parser.FunctionDefinition
 		stream := ctx.NAME().GetSymbol().GetInputStream().GetSourceName()
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		return
 	}
 
-	entry := llvm.AddBasicBlock(*function.LLVMFunction, "entry")
+	entry := llvm.AddBasicBlock(*function.LLVMFunction, funcname+"#entry")
 	l.program.Builder().SetInsertPoint(entry, *function.LLVMFunction)
 }
 
-func (l *DoSourceListner) ExitFunctionDefinition(ctx *parser.GlobalVariableDefinitionContext) {
+func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 
 	l.function = nil
 }
 
-func (l *DoSourceListner) ExitFunctioncall(ctx *parser.FunctioncallContext) {
+func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 	funcname := ctx.Dividedname().GetText()
 	function, err := l.program.GetFunction(funcname)
 	if err != nil {
@@ -59,25 +59,20 @@ func (l *DoSourceListner) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		stream := ctx.Dividedname().GetStart().GetInputStream().GetSourceName()
 
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		return
 	}
-
-	fmt.Println(funcname)
-
+	
 	l.program.Builder().CreateCall(*function.FunctionType, *function.LLVMFunction, []llvm.Value{}, funcname)
 }
 
-func (l *DoSourceListner) ExitConstantuse(ctx *parser.ConstantuseContext) {
+func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {
 }
 
-func (l *DoSourceListner) ExitVariableuse(ctx *parser.VariableuseContext) {
+func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 }
 
-func (l *DoSourceListner) ExitAssign(ctx *parser.AssignContext) {
+func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 }
 
-func (l *DoSourceListner) ExitEmptyexpression(*parser.EmptyexpressionContext) {
-}
-
-func (l *DoSourceListner) ExitEveryRule (ctx antlr.ParserRuleContext) {
-	fmt.Println(reflect.TypeOf(ctx))
+func (l *DoSourceListener) ExitEmptyexpression(*parser.EmptyexpressionContext) {
 }

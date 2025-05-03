@@ -5,5 +5,5 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	Compile("./doexamples/generaltest.do")
+	Compile("./doexamples/generaltest_simple.do")
 }

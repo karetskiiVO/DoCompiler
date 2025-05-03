@@ -42,7 +42,12 @@ func (prog *Program) init() *Program {
 	*intType = prog.ctx.IntType(32)
 
 	// очень временное решение
-	prog.RegisterFunction("tmpPrint", []string{}, []string{})
+	tmpPrintFunc, _ := prog.RegisterFunction("tmpPrint", []string{}, []string{})
+	prog.builder.SetInsertPoint(
+		llvm.AddBasicBlock(*tmpPrintFunc.LLVMFunction, "tmpPrint#entry"),
+		*tmpPrintFunc.LLVMFunction,
+	)
+
 	prog.RegisterGlobalVariable("tmpOut", "int")
 	// prog.RegisterType("bool")
 	// prog.RegisterType("string")
@@ -236,7 +241,7 @@ func (prog Program) Types() map[string]*compilertypes.Type {
 	return prog.types
 }
 
-func (prog * Program) RegisterGlobalVariable(varname string, vartype string) (*compilertypes.Variable, error) {
+func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*compilertypes.Variable, error) {
 	if _, ok := prog.types[varname]; ok {
 		return nil, fmt.Errorf("variable %v is already exist as type", varname)
 	}

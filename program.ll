@@ -3,12 +3,22 @@ source_filename = "main"
 
 @tmpOut = external global i32
 
-declare {} @tmpPrint()
+define {} @tmpPrint() {
+"tmpPrint#entry":
+}
 
-declare {} @f()
+define {} @f() {
+"f#entry":
+}
 
-declare {} @main()
+define {} @main() {
+"main#entry":
+}
 
-declare {} @g(i32)
+define {} @g(i32 %0) {
+"g#entry":
+}
 
-declare { i32, i32 } @h(i32)
+define { i32, i32 } @h(i32 %0) {
+"h#entry":
+}

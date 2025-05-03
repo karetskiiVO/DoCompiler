@@ -5,19 +5,19 @@ import (
 	"github.com/karetskiiVO/DoCompiler/parser"
 )
 
-type Listners struct {
-	listners []antlr.ParseTreeListener
-	roots    []parser.IProgramContext
+type Listeners struct {
+	Listeners []antlr.ParseTreeListener
+	roots     []parser.IProgramContext
 }
 
-func (l *Listners) Set(newListner func(int) antlr.ParseTreeListener) {
-	for i := range l.listners {
-		l.listners[i] = newListner(i)
+func (l *Listeners) Set(newListener func(int) antlr.ParseTreeListener) {
+	for i := range l.Listeners {
+		l.Listeners[i] = newListener(i)
 	}
 }
 
-func (l *Listners) Exec() {
-	for i := range l.listners {
-		antlr.ParseTreeWalkerDefault.Walk(l.listners[i], l.roots[i])
+func (l *Listeners) Exec() {
+	for i := range l.Listeners {
+		antlr.ParseTreeWalkerDefault.Walk(l.Listeners[i], l.roots[i])
 	}
 }
