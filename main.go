@@ -9,6 +9,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
 	"github.com/karetskiiVO/slices"
+	"tinygo.org/x/go-llvm"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 	doListeners "github.com/karetskiiVO/DoCompiler/compiler/Listeners"
@@ -29,6 +30,17 @@ var typeDescriptor = template.Must(template.New("typedescriptor").Parse(typeDesc
 var variableDescriptor = template.Must(template.New("variabledescriptor").Parse(variablesDescriptorString))
 
 func main() {
+	ctx := llvm.NewContext()
+	mod := ctx.NewModule("main")
+	fnType := llvm.FunctionType(ctx.VoidType(), []llvm.Type{}, false)
+	fn := llvm.AddFunction(mod, "foo", fnType)
+	builder := ctx.NewBuilder()
+	block := llvm.AddBasicBlock(fn, "entry")
+	builder.SetInsertPoint(block, fn)
+	builder.CreateCall(fn.Type(), fn, []llvm.Value{}, "")
+
+	return
+
 	var options struct {
 		Args struct {
 			SourceFileNames []string
@@ -42,8 +54,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// mod.Dump()
 	/********** Компиляция **********/
-	Compile(options.Args.SourceFileNames...)
+	//Compile(options.Args.SourceFileNames...)
 }
 
 func Compile(srcFiles ...string) {
