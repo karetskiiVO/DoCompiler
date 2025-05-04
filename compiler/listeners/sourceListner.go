@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/go-llvm/llvm"
-	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 	"github.com/karetskiiVO/DoCompiler/parser"
+	"github.com/llir/llvm/ir"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 )
@@ -14,7 +13,7 @@ import (
 type DoSourceListener struct {
 	*parser.BaseDoListener
 
-	function *compilertypes.Function
+	function *ir.Func
 	program  *compiler.Program
 }
 
@@ -40,9 +39,10 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
 		return
 	}
+	_ = function
 
-	entry := llvm.AddBasicBlock(*function.LLVMFunction, funcname+"#entry")
-	l.program.Builder().SetInsertPoint(entry, *function.LLVMFunction)
+	// entry := llvm.AddBasicBlock(*function.LLVMFunction, funcname+"#entry")
+	// l.program.Builder().SetInsertPoint(entry, *function.LLVMFunction)
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
@@ -61,12 +61,6 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
 		return
 	}
-	
-	l.program.Builder().CreateCall(
-		*function.LLVMFunction,
-		[]llvm.Value{},
-		"",
-	)
 }
 
 func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {

@@ -5,28 +5,28 @@ import (
 	"fmt"
 	"strings"
 
-	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 	"github.com/karetskiiVO/slices"
-	
-	"github.com/go-llvm/llvm"
+
+	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 type Program struct {
 	// TODO: таблица типов и видимостей
-	types     map[string]*compilertypes.Type
-	variables map[string]*compilertypes.Variable
-	functions map[string]*compilertypes.Function
-	ctx       llvm.Context
-	mod       llvm.Module
-	builder   llvm.Builder
-	err       error
+	types     map[string]types.Type
+	variables map[string]value.Value
+	functions map[string]*ir.Func
+
+	mod *ir.Module
+	err error
 }
 
 func NewProgram() *Program {
 	return (&Program{
-		types:     make(map[string]*compilertypes.Type),
-		variables: make(map[string]*compilertypes.Variable),
-		functions: make(map[string]*compilertypes.Function),
+		types:     make(map[string]types.Type),
+		variables: make(map[string]value.Value),
+		functions: make(map[string]*ir.Func),
 	}).init()
 }
 
@@ -35,19 +35,19 @@ func (prog *Program) Error() error {
 }
 
 func (prog *Program) init() *Program {
-	prog.ctx = llvm.NewContext()
-	prog.mod = prog.ctx.NewModule("main")
-	prog.builder = prog.ctx.NewBuilder()
+	prog.mod = ir.NewModule()
 
-	intType, _ := prog.RegisterType("int")
-	*intType = prog.ctx.IntType(32)
+	prog.types["int"] = types.I32
 
 	// очень временное решение
-	tmpPrintFunc, _ := prog.RegisterFunction("tmpPrint", []string{}, []string{})
-	prog.builder.SetInsertPoint(
-		llvm.AddBasicBlock(*tmpPrintFunc.LLVMFunction, "tmpPrint#entry"),
-		*tmpPrintFunc.LLVMFunction,
-	)
+	tmpPrintFunc, _ := prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
+	entry := tmpPrintFunc.NewBlock("entry")
+	ret := entry.NewAlloca(tmpPrintFunc.Sig.RetType)
+	entry.NewRet(ret)
+	// prog.builder.SetInsertPoint(
+	// 	llvm.AddBasicBlock(*tmpPrintFunc.LLVMFunction, "tmpPrint#entry"),
+	// 	*tmpPrintFunc.LLVMFunction,
+	// )
 
 	prog.RegisterGlobalVariable("tmpOut", "int")
 	// prog.RegisterType("bool")
@@ -86,7 +86,7 @@ func isTypeTupple(typename string) bool {
 	return strings.HasPrefix(typename, "(")
 }
 
-func (prog *Program) RegisterType(typename string) (*compilertypes.Type, error) {
+func (prog *Program) RegisterType(typename string) (types.Type, error) {
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type %v is already exist", typename)
 	}
@@ -101,23 +101,23 @@ func (prog *Program) RegisterType(typename string) (*compilertypes.Type, error) 
 
 	// TODO: struct, behovour and so on
 
-	res := new(compilertypes.Type)
+	res := types.Type(nil)
 	prog.types[typename] = res
 	return res, nil
 }
 
-func (prog *Program) registerFuncType(typename string) (*compilertypes.Type, error) {
+func (prog *Program) registerFuncType(typename string) (types.Type, error) {
 	// Убераем лишнее
 	preparedTypename, _ := strings.CutPrefix(typename, FunctionKeyword+"(")
 
 	argTypenames, retTuple, _ := strings.Cut(preparedTypename, ")")
 
 	var err error
-	typeConverter := func(typename string) compilertypes.Type {
+	typeConverter := func(typename string) types.Type {
 		res, locerr := prog.GetType(typename)
 		err = errors.Join(err, locerr)
 
-		return *res
+		return res
 	}
 	retType, err := prog.GetType(retTuple)
 
@@ -133,21 +133,20 @@ func (prog *Program) registerFuncType(typename string) (*compilertypes.Type, err
 		return nil, err
 	}
 
-	res := new(compilertypes.Type)
-	*res = llvm.FunctionType(*retType, argTypes, false)
+	res := types.NewFunc(retType, argTypes...)
 	prog.types[typename] = res
 
 	return res, nil
 }
 
-func (prog *Program) registerTypeTupple(typename string) (*compilertypes.Type, error) {
+func (prog *Program) registerTypeTupple(typename string) (types.Type, error) {
 	preparedTypename := (string)(([]byte)(typename)[1 : len(typename)-1])
 
 	var err error
-	typeConverter := func(typename string) compilertypes.Type {
+	typeConverter := func(typename string) types.Type {
 		res, locerr := prog.GetType(typename)
 		err = errors.Join(err, locerr)
-		return *res
+		return res
 	}
 
 	sep := ","
@@ -155,15 +154,15 @@ func (prog *Program) registerTypeTupple(typename string) (*compilertypes.Type, e
 		sep = ""
 	}
 
-	types := slices.Map(strings.Split(preparedTypename, sep), typeConverter)
-	res := new(compilertypes.Type)
+	res := types.NewStruct(
+		slices.Map(strings.Split(preparedTypename, sep), typeConverter)...,
+	)
 	prog.types[typename] = res
-	*res = llvm.StructType(types, false)
 
 	return res, nil
 }
 
-func (prog *Program) GetType(typename string) (*compilertypes.Type, error) {
+func (prog *Program) GetType(typename string) (types.Type, error) {
 	res, ok := prog.types[typename]
 	if ok {
 		return res, nil
@@ -180,7 +179,7 @@ func (prog *Program) GetType(typename string) (*compilertypes.Type, error) {
 	return nil, fmt.Errorf("type %v is not declared in this scope", typename)
 }
 
-func (prog *Program) RegisterFunction(funcname string, argtypenames, rettypenames []string) (*compilertypes.Function, error) {
+func (prog *Program) RegisterFunction(funcname string, argnames, argtypenames, rettypenames []string) (*ir.Func, error) {
 	if _, ok := prog.types[funcname]; ok {
 		return nil, fmt.Errorf("function %v is already exist as type", funcname)
 	}
@@ -194,42 +193,47 @@ func (prog *Program) RegisterFunction(funcname string, argtypenames, rettypename
 	}
 
 	var err error
-	argtypes := slices.Map(argtypenames, func(typename string) *compilertypes.Type {
+	argtypes := slices.Map(argtypenames, func(typename string) types.Type {
 		argType, locerr := prog.GetType(typename)
 		err = errors.Join(err, locerr)
 		return argType
 	})
-	rettypes := slices.Map(rettypenames, func(typename string) *compilertypes.Type {
-		argType, locerr := prog.GetType(typename)
-		err = errors.Join(err, locerr)
-		return argType
-	})
+	// rettypes := slices.Map(rettypenames, func(typename string) types.Type {
+	// 	argType, locerr := prog.GetType(typename)
+	// 	err = errors.Join(err, locerr)
+	// 	return argType
+	// })
 
 	if err != nil {
 		return nil, err
 	}
 
-	functype, _ := prog.GetType(
-		fmt.Sprintf("%v(%v)(%v)", FunctionKeyword, strings.Join(argtypenames, ","), strings.Join(rettypenames, ",")),
+	functypeRaw, _ := prog.GetType(
+		fmt.Sprintf(
+			"%v(%v)(%v)",
+			FunctionKeyword,
+			strings.Join(argtypenames, ","),
+			strings.Join(rettypenames, ","),
+		),
 	)
 
-	val := new(llvm.Value)
-	*val = llvm.AddFunction(prog.mod, funcname, *functype)
-
-	res := compilertypes.NewFunction(
+	functype := functypeRaw.(*types.FuncType)
+	res := ir.NewFunc(
 		funcname,
-		argtypes,
-		rettypes,
-		functype,
-		val,
+		functype.RetType,
+		slices.Map(
+			slices.Join(argnames, argtypes),
+			func(arg slices.Pair[string, types.Type]) *ir.Param {
+				return ir.NewParam(arg.First, arg.Second)
+			},
+		)...,
 	)
-
 	prog.functions[funcname] = res
 
 	return res, nil
 }
 
-func (prog *Program) GetFunction(funcname string) (*compilertypes.Function, error) {
+func (prog *Program) GetFunction(funcname string) (*ir.Func, error) {
 	res, ok := prog.functions[funcname]
 	if ok {
 		return res, nil
@@ -238,11 +242,11 @@ func (prog *Program) GetFunction(funcname string) (*compilertypes.Function, erro
 	return nil, fmt.Errorf("function %v is not declared in this scope", funcname)
 }
 
-func (prog Program) Types() map[string]*compilertypes.Type {
+func (prog Program) Types() map[string]types.Type {
 	return prog.types
 }
 
-func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*compilertypes.Variable, error) {
+func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*ir.Global, error) {
 	if _, ok := prog.types[varname]; ok {
 		return nil, fmt.Errorf("variable %v is already exist as type", varname)
 	}
@@ -260,27 +264,20 @@ func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*co
 		return nil, err
 	}
 
-	val := new(llvm.Value)
-	*val = llvm.AddGlobal(prog.mod, *varType, varname)
-
-	res := compilertypes.NewVariable(varname, varType, val)
+	res := prog.mod.NewGlobal(varname, varType)
 	prog.variables[varname] = res
 
 	return res, nil
 }
 
-func (prog Program) Variables() map[string]*compilertypes.Variable {
+func (prog Program) Variables() map[string]value.Value {
 	return prog.variables
 }
 
-func (prog Program) Functions() map[string]*compilertypes.Function {
+func (prog Program) Functions() map[string]*ir.Func {
 	return prog.functions
 }
 
-func (prog Program) Builder() llvm.Builder {
-	return prog.builder
-}
-
-func (prog Program) Module() llvm.Module {
+func (prog Program) Module() *ir.Module {
 	return prog.mod
 }

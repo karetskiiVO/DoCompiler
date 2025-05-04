@@ -11,7 +11,6 @@ import (
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 	doListeners "github.com/karetskiiVO/DoCompiler/compiler/Listeners"
-	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
 func main() {

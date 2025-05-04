@@ -29,25 +29,29 @@ func NewDoVariableDeclarationListener(program *compiler.Program) antlr.ParseTree
 func (l *DoVariableDeclarationListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	funcname := ctx.NAME().GetText()
 
-	argTypenames := make([]string, 0)
-	slices.Map(ctx.Arglist().AllArgsublist(), func(arglistctx parser.IArgsublistContext) struct{} {
-		// TODO: сделать не только typename - сейчас очень коряво
-		typename := arglistctx.Type_().Typename().Dividedname().GetText()
+	argtypenames := slices.Concat(
+		slices.Map(ctx.Arglist().AllArgsublist(), func(arglistctx parser.IArgsublistContext) []string {
+			// TODO: сделать не только typename - сейчас очень коряво
+			typename := arglistctx.Type_().Typename().Dividedname().GetText()
 
-		argTypenames = append(argTypenames,
-			slices.Repeat(
+			return slices.Repeat(
 				[]string{typename},
 				len(arglistctx.AllArgname()),
-			)...,
-		)
-
-		return struct{}{}
-	})
-	retTypenames := slices.Map(ctx.Typetuple().AllType_(), func(typectx parser.ITypeContext) string {
+			)
+		})...,
+	)
+	argnames := slices.Concat(
+		slices.Map(ctx.Arglist().AllArgsublist(), func(arglistctx parser.IArgsublistContext) []string {
+			return slices.Map(arglistctx.AllArgname(), func(argnamectx parser.IArgnameContext) string {
+				return argnamectx.GetText()
+			})
+		})...,
+	)
+	rettypenames := slices.Map(ctx.Typetuple().AllType_(), func(typectx parser.ITypeContext) string {
 		return typectx.GetText()
 	})
 
-	_, err := l.program.RegisterFunction(funcname, argTypenames, retTypenames)
+	_, err := l.program.RegisterFunction(funcname, argnames, argtypenames, rettypenames)
 	if err != nil {
 		line := ctx.NAME().GetSymbol().GetLine()
 		start := ctx.NAME().GetSymbol().GetColumn()

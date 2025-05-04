@@ -6,10 +6,12 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/karetskiiVO/slices v0.0.0-20250413160929-df8175243917
+	github.com/llir/llvm v0.3.6
 )
 
 require (
-	github.com/go-llvm/llvm v0.0.0-20141101215015-c8914dc52445 // indirect
+	github.com/mewmew/float v0.0.0-20201204173432-505706aa38fa // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 )
