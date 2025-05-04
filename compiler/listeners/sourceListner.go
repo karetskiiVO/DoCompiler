@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/go-llvm/llvm"
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 	"github.com/karetskiiVO/DoCompiler/parser"
-	"tinygo.org/x/go-llvm"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 )
@@ -62,7 +62,11 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		return
 	}
 	
-	l.program.Builder().CreateCall(*function.FunctionType, *function.LLVMFunction, []llvm.Value{}, funcname)
+	l.program.Builder().CreateCall(
+		*function.LLVMFunction,
+		[]llvm.Value{},
+		"",
+	)
 }
 
 func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {

@@ -7,7 +7,8 @@ import (
 
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 	"github.com/karetskiiVO/slices"
-	"tinygo.org/x/go-llvm"
+	
+	"github.com/go-llvm/llvm"
 )
 
 type Program struct {

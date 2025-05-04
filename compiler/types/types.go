@@ -2,7 +2,8 @@ package compilertypes
 
 import (
 	"github.com/karetskiiVO/slices"
-	"tinygo.org/x/go-llvm"
+	
+	"github.com/go-llvm/llvm"
 )
 
 type Type = llvm.Type

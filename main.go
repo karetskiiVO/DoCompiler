@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"text/template"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
@@ -14,19 +13,6 @@ import (
 	doListeners "github.com/karetskiiVO/DoCompiler/compiler/Listeners"
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
-
-const typeDescriptorString = `type {{ .Name }}:
-	.isfunc         = {{ .IsFunction }}
-	.isbehavour     = {{ .IsBehavour }}
-{{ if .IsBehavour -}}
-	.isselfbehavour = {{ .SelfBehavour }}
-{{- end }}
-`
-const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType }}
-`
-
-var typeDescriptor = template.Must(template.New("typedescriptor").Parse(typeDescriptorString))
-var variableDescriptor = template.Must(template.New("variabledescriptor").Parse(variablesDescriptorString))
 
 func main() {
 	var options struct {
