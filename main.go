@@ -2,33 +2,15 @@ package main
 
 import (
 	"fmt"
-	"maps"
 	"os"
-	"slices"
-	"strings"
-	"text/template"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
-	"github.com/karetskiiVO/DoCompiler/compiler/types"
-	dolistners "github.com/karetskiiVO/DoCompiler/compiler/listners"
+	doListeners "github.com/karetskiiVO/DoCompiler/compiler/listeners"
 )
-
-const typeDescriptorString = `type {{ .Name }}:
-	.isfunc         = {{ .IsFunction }}
-	.isbehavour     = {{ .IsBehavour }}
-{{ if .IsBehavour -}}
-	.isselfbehavour = {{ .SelfBehavour }}
-{{- end }}
-`
-const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType.Name }}
-`
-
-var typeDescriptor = template.Must(template.New("typedescriptor").Parse(typeDescriptorString))
-var variableDescriptor = template.Must(template.New("variabledescriptor").Parse(variablesDescriptorString))
 
 func main() {
 	var options struct {
@@ -49,9 +31,9 @@ func main() {
 }
 
 func Compile(srcFiles ...string) {
-	listners := &Listners{
-		listners: make([]antlr.ParseTreeListener, len(srcFiles)),
-		roots:    make([]parser.IProgramContext, 0, len(srcFiles)),
+	Listeners := &Listeners{
+		Listeners: make([]antlr.ParseTreeListener, len(srcFiles)),
+		roots:     make([]parser.IProgramContext, 0, len(srcFiles)),
 	}
 	for _, fileName := range srcFiles {
 		input, err := antlr.NewFileStream(fileName)
@@ -62,46 +44,35 @@ func Compile(srcFiles ...string) {
 
 		lexer := parser.NewDoLexer(input)
 		stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-		listners.roots = append(listners.roots, parser.NewDoParser(stream).Program())
+		Listeners.roots = append(Listeners.roots, parser.NewDoParser(stream).Program())
 	}
 
 	program := compiler.NewProgram()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoTypeDeclarationListener(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoTypeDeclarationListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoTypeDefinitionListener(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoTypeDefinitionListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
 
-	listners.Set(func(int) antlr.ParseTreeListener {
-		return dolistners.NewDoVariableDeclarationListner(program)
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoVariableDeclarationListener(program)
 	})
-	listners.Exec()
+	Listeners.Exec()
+
+	Listeners.Set(func(int) antlr.ParseTreeListener {
+		return doListeners.NewDoSourceListener(program)
+	})
+	Listeners.Exec()
 
 	err := program.Validate()
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	typeinfos := slices.Collect(maps.Values(program.Types()))
-	slices.SortFunc(typeinfos, func(fst, snd *compilertypes.Type) int {
-		return strings.Compare(string(fst.Name), string(snd.Name))
-	})
-
-	for _, typeinfo := range typeinfos {
-		typeDescriptor.Execute(os.Stdout, typeinfo)
-	}
-
-	variables := slices.Collect(maps.Values(program.Variables()))
-	slices.SortFunc(variables, func(fst, snd *compilertypes.Variable) int {
-		return strings.Compare(string(fst.Name), string(snd.Name))
-	})
-
-	for _, varinfo := range variables {
-		variableDescriptor.Execute(os.Stdout, varinfo)
-	}
+	os.WriteFile("program.ll", []byte(program.Module().String()), 0644)
 }

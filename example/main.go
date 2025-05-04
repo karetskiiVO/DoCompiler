@@ -1,4 +1,4 @@
-package example
+package main
 
 import (
 	"fmt"
@@ -8,18 +8,19 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+	"reflect"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
-func Run() {
+func main() {
 	// input, _ := os.Open(os.Args[1])
 	// defer input.Close()
 	// buff, _ := io.ReadAll(input)
 
-	// Parse the source files.	
+	// Parse the source files.
 	file := ".\\example\\test\\test1.txt"
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -46,6 +47,12 @@ func Run() {
 
 	// Print out the package.
 	hello.WriteTo(output)
+
+	fmt.Println(reflect.TypeOf(hello.Var("f").Type()))
+	fmt.Println(hello.Var("f").Type().(*types.Pointer).Elem())
+	fmt.Println(reflect.TypeOf(hello.Var("f").Type().(*types.Pointer).Elem()))
+
+	// types.NewPointer()
 
 	// Print out the package-level functions.
 	for _, member := range hello.Members {
