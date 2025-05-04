@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"text/template"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
@@ -16,20 +15,8 @@ import (
 	compilertypes "github.com/karetskiiVO/DoCompiler/compiler/types"
 )
 
-const typeDescriptorString = `type {{ .Name }}:
-	.isfunc         = {{ .IsFunction }}
-	.isbehavour     = {{ .IsBehavour }}
-{{ if .IsBehavour -}}
-	.isselfbehavour = {{ .SelfBehavour }}
-{{- end }}
-`
-const variablesDescriptorString = `var {{ .Name }}: .type {{ .VarType }}
-`
-
-var typeDescriptor = template.Must(template.New("typedescriptor").Parse(typeDescriptorString))
-var variableDescriptor = template.Must(template.New("variabledescriptor").Parse(variablesDescriptorString))
-
 func main() {
+
 	ctx := llvm.NewContext()
 	mod := ctx.NewModule("main")
 	fnType := llvm.FunctionType(ctx.VoidType(), []llvm.Type{}, false)
@@ -37,8 +24,10 @@ func main() {
 	builder := ctx.NewBuilder()
 	block := llvm.AddBasicBlock(fn, "entry")
 	builder.SetInsertPoint(block, fn)
-	builder.CreateCall(fn.Type(), fn, []llvm.Value{}, "")
-
+	builder.CreateCall(fnType, fn, []llvm.Value{}, "")
+	builder.CreateRetVoid()
+	
+	//mod.Dump()
 	return
 
 	var options struct {
@@ -54,9 +43,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// mod.Dump()
 	/********** Компиляция **********/
-	//Compile(options.Args.SourceFileNames...)
+	Compile(options.Args.SourceFileNames...)
 }
 
 func Compile(srcFiles ...string) {
