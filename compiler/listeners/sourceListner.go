@@ -13,8 +13,9 @@ import (
 type DoSourceListener struct {
 	*parser.BaseDoListener
 
-	function *ir.Func
-	program  *compiler.Program
+	currblock *ir.Block
+	currfunc  *ir.Func
+	program   *compiler.Program
 }
 
 func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
@@ -30,24 +31,18 @@ func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
 func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	funcname := ctx.NAME().GetText() // Объвить нужные переменные
 
-	function, err := l.program.GetFunction(funcname)
-	if err != nil {
-		line := ctx.NAME().GetSymbol().GetLine()
-		start := ctx.NAME().GetSymbol().GetColumn()
-		stream := ctx.NAME().GetSymbol().GetInputStream().GetSourceName()
+	function, _ := l.program.GetFunction(funcname)
 
-		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
-		return
-	}
-	_ = function
-
-	// entry := llvm.AddBasicBlock(*function.LLVMFunction, funcname+"#entry")
-	// l.program.Builder().SetInsertPoint(entry, *function.LLVMFunction)
+	entry := function.NewBlock("")
+	l.currblock = entry
+	l.currfunc = function
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
+	retval := l.currblock.NewAlloca(l.currfunc.Sig.RetType)
+	retval.SetName("retval")
 
-	l.function = nil
+	l.currblock.NewRet(retval)
 }
 
 func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
@@ -61,6 +56,8 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
 		return
 	}
+
+	l.currblock.NewCall(function)
 }
 
 func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {

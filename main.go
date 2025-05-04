@@ -7,10 +7,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
-	"github.com/karetskiiVO/slices"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
-	doListeners "github.com/karetskiiVO/DoCompiler/compiler/Listeners"
+	doListeners "github.com/karetskiiVO/DoCompiler/compiler/listeners"
 )
 
 func main() {
@@ -75,32 +74,5 @@ func Compile(srcFiles ...string) {
 		fmt.Println(err)
 	}
 
-	typeinfos := slices.CollectMap(program.Types())
-	slices.Map(typeinfos, func(pair slices.Pair[string, *compilertypes.Type]) struct{} {
-		fmt.Printf("%v:\n", pair.First)
-		fmt.Printf("\tllvm: %p\n", pair.Second)
-
-		return struct{}{}
-	})
-
 	os.WriteFile("program.ll", []byte(program.Module().String()), 0644)
-
-	/*
-		slices.SortFunc(typeinfos, func(fst, snd *compilertypes.Type) int {
-			return strings.Compare(string(fst.String()), string(snd.String()))
-		})
-
-		for _, typeinfo := range typeinfos {
-			typeDescriptor.Execute(os.Stdout, typeinfo)
-		}
-
-		variables := slices.Collect(maps.Values(program.Variables()))
-		slices.SortFunc(variables, func(fst, snd *compilertypes.Variable) int {
-			return strings.Compare(string(fst.Name), string(snd.Name))
-		})
-
-		for _, varinfo := range variables {
-			variableDescriptor.Execute(os.Stdout, varinfo)
-		}
-	*/
 }

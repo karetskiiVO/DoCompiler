@@ -2,6 +2,8 @@ act f () {
     a, _ = 1, 3
 }
 
+var variable int
+
 act main () {
     tmpPrint()
     f()

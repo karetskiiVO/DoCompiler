@@ -40,14 +40,7 @@ func (prog *Program) init() *Program {
 	prog.types["int"] = types.I32
 
 	// очень временное решение
-	tmpPrintFunc, _ := prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
-	entry := tmpPrintFunc.NewBlock("entry")
-	ret := entry.NewAlloca(tmpPrintFunc.Sig.RetType)
-	entry.NewRet(ret)
-	// prog.builder.SetInsertPoint(
-	// 	llvm.AddBasicBlock(*tmpPrintFunc.LLVMFunction, "tmpPrint#entry"),
-	// 	*tmpPrintFunc.LLVMFunction,
-	// )
+	prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
 
 	prog.RegisterGlobalVariable("tmpOut", "int")
 	// prog.RegisterType("bool")
@@ -218,7 +211,7 @@ func (prog *Program) RegisterFunction(funcname string, argnames, argtypenames, r
 	)
 
 	functype := functypeRaw.(*types.FuncType)
-	res := ir.NewFunc(
+	res := prog.mod.NewFunc(
 		funcname,
 		functype.RetType,
 		slices.Map(

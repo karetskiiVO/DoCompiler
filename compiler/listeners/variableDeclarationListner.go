@@ -63,5 +63,16 @@ func (l *DoVariableDeclarationListener) EnterFunctionDefinition(ctx *parser.Func
 }
 
 func (l *DoVariableDeclarationListener) EnterGlobalVariableDefinition(ctx *parser.GlobalVariableDefinitionContext) {
+	varname := ctx.NAME().GetText()
+	typename := ctx.Typename().Dividedname().GetText()
 
+	_, err := l.program.RegisterGlobalVariable(varname, typename)
+	if err != nil {
+		line := ctx.NAME().GetSymbol().GetLine()
+		start := ctx.NAME().GetSymbol().GetColumn()
+		stream := ctx.NAME().GetSymbol().GetInputStream().GetSourceName()
+
+		l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+		return
+	}
 }
