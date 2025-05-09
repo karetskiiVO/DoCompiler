@@ -31,4 +31,6 @@ act h (b int) (int, int) {
     }
 }
 
-act t () (int, int) {}
+act t () (int, int) {
+    return 1, 0
+}

@@ -55,10 +55,14 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
-	retval := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-	retval.SetName("#ret")
-
-	l.topBlock().NewRet(retval)
+	rettype := l.currfunc.Sig.RetType.(*types.StructType)
+	if len(rettype.Fields) == 0 {
+		retval := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
+		retval.SetName("#ret")
+		l.topBlock().NewRet(retval)
+	} else {
+		l.topBlock().NewUnreachable()
+	}
 
 	l.popBlock()
 }
@@ -241,5 +245,38 @@ func (l *DoSourceListener) ExitElsestatement(ctx *parser.ElsestatementContext) {
 	l.values = l.values[:len(l.values)-1]
 }
 
-func (l *DoSourceListener) ExitEmptyexpression(*parser.EmptyexpressionContext) {
+func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContext) {
+	values := l.values[len(l.values)-1]
+
+	rettype := l.currfunc.Sig.RetType.(*types.StructType)
+
+	if len(rettype.Fields) != len(values) {
+		line := ctx.GetStart().GetLine()
+		start := ctx.GetStart().GetColumn()
+		stream := ctx.GetStart().GetInputStream().GetSourceName()
+
+		l.program.AddErrorf(
+			"%v:%v:%v: incorrect number of expressions in the return expected: %v actual: %v",
+			stream,
+			line,
+			start,
+			len(rettype.Fields),
+			len(values),
+		)
+		return
+	}
+
+	retval := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
+	for i, field := range rettype.Fields {
+
+		l.topBlock().NewStore(
+			values[i],
+			l.topBlock().NewGetElementPtr(field, retval, constant.NewIndex(constant.NewInt(types.I64, int64(i)))),
+		)
+	}
+	retval.SetName("#ret")
+
+	l.topBlock().NewRet(retval)
+	l.popBlock()
+	l.pushBlock(l.newBlock())
 }

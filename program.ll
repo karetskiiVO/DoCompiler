@@ -67,12 +67,18 @@ define { i32, i32 } @h(i32 %b) {
 	br label %11
 
 11:
-	%"#ret" = alloca { i32, i32 }
-	ret { i32, i32 }* %"#ret"
+	unreachable
 }
 
 define { i32, i32 } @t() {
 0:
 	%"#ret" = alloca { i32, i32 }
+	%1 = getelementptr i32, { i32, i32 }* %"#ret", i64 0
+	store i32 1, i32* %1
+	%2 = getelementptr i32, { i32, i32 }* %"#ret", i64 1
+	store i32 0, i32* %2
 	ret { i32, i32 }* %"#ret"
+
+3:
+	unreachable
 }

@@ -27,10 +27,11 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: assign | ifstatement;
+statement: assign | ifstatement | returnstatement;
 assign: (expressiontuplelhv '=')? expressiontuplerhv;
 ifstatement: 'if' expression statementblock elsestatement?;
 elsestatement: 'else' (ifstatement | statementblock);
+returnstatement: 'return' expressiontuple;
 
 expressiontuple: expression (',' expression)*;
 expression: emptyexpression | variableuse | ('(' expressiontuple ')') | constantuse | functioncall;
