@@ -38,6 +38,7 @@ func (prog *Program) init() *Program {
 	prog.mod = ir.NewModule()
 
 	prog.types["int"] = types.I32
+	prog.types["bool"] = types.I1
 
 	// очень временное решение
 	prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
@@ -71,6 +72,10 @@ func (prog *Program) AddError(err error) {
 	}
 }
 
+func (prog *Program) AddErrorf(format string, a ...any) {
+	prog.AddError(fmt.Errorf(format, a...))
+}
+
 func isFuncType(typename string) bool {
 	return strings.HasPrefix(typename, FunctionKeyword+"(")
 }
@@ -81,7 +86,7 @@ func isTypeTupple(typename string) bool {
 
 func (prog *Program) RegisterType(typename string) (types.Type, error) {
 	if _, ok := prog.types[typename]; ok {
-		return nil, fmt.Errorf("type %v is already exist", typename)
+		return nil, fmt.Errorf("type `%v` is already exist", typename)
 	}
 
 	if isFuncType(typename) {
@@ -169,20 +174,20 @@ func (prog *Program) GetType(typename string) (types.Type, error) {
 		return prog.registerTypeTupple(typename)
 	}
 
-	return nil, fmt.Errorf("type %v is not declared in this scope", typename)
+	return nil, fmt.Errorf("type `%v` is not declared in this scope", typename)
 }
 
 func (prog *Program) RegisterFunction(funcname string, argnames, argtypenames, rettypenames []string) (*ir.Func, error) {
 	if _, ok := prog.types[funcname]; ok {
-		return nil, fmt.Errorf("function %v is already exist as type", funcname)
+		return nil, fmt.Errorf("function `%v` is already exist as type", funcname)
 	}
 
 	if _, ok := prog.functions[funcname]; ok {
-		return nil, fmt.Errorf("function %v is already exist as function", funcname)
+		return nil, fmt.Errorf("function `%v` is already exist as function", funcname)
 	}
 
 	if _, ok := prog.variables[funcname]; ok {
-		return nil, fmt.Errorf("function %v is already exist as variable", funcname)
+		return nil, fmt.Errorf("function `%v` is already exist as variable", funcname)
 	}
 
 	var err error
@@ -232,7 +237,16 @@ func (prog *Program) GetFunction(funcname string) (*ir.Func, error) {
 		return res, nil
 	}
 
-	return nil, fmt.Errorf("function %v is not declared in this scope", funcname)
+	return nil, fmt.Errorf("function `%v` is not declared in this scope", funcname)
+}
+
+func (prog *Program) GetVariable(varname string) (value.Value, error) {
+	res, ok := prog.variables[varname]
+	if ok {
+		return res, nil
+	}
+
+	return nil, fmt.Errorf("variable `%v` is not declared in this scope", varname)
 }
 
 func (prog Program) Types() map[string]types.Type {

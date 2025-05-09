@@ -2,14 +2,21 @@ act f () {
     a, _ = 1, 3
 }
 
-var variable int
+var a int
+var b int
+var c int
+var d int
+var e int
 
 act main () {
     tmpPrint()
     f()
     tmpPrint()
+    b, c = h()
 }
 
 act g (b int) {}
 
 act h (b int) (int, int) {}
+
+act t () (int, int) {}

@@ -5,7 +5,7 @@ program: definition* EOF;
 definition: functionDefinition | typeDefinition | globalVariableDefinition; // TODO: метод и глобальные переменные
 
 globalVariableDefinition: 'var' NAME typename; /* expression */
-functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple '{' statement* '}';
+functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple statementblock;
 typeDefinition: 'with' NAME genericparamslist? type;
 
 type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefinition; 
@@ -13,6 +13,7 @@ type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefini
 structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield) ';')* '}';
 behavourdefinition: 'behavour' '{' '}';
 
+statementblock: '{' statement* '}';
 typetuple: type? | ('(' type (',' type)* ')');
 arglist: argsublist? | (argsublist (',' argsublist));
 argsublist: argname (',' argname)* type;
@@ -26,8 +27,11 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: assign;
-assign: expressiontuplelhv ('=' expressiontuplerhv)?;
+statement: assign | ifstatement;
+assign: (expressiontuplelhv '=')? expressiontuplerhv;
+ifstatement: 'if' expression statementblock elsestatement?;
+elsestatement: 'else' (ifstatement | statementblock);
+
 expressiontuple: expression (',' expression)*;
 expression: emptyexpression | variableuse | ('(' expressiontuple ')') | constantuse | functioncall;
 functioncall: dividedname '(' expressiontuple? ')';
