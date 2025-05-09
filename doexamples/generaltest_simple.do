@@ -17,6 +17,18 @@ act main () {
 
 act g (b int) {}
 
-act h (b int) (int, int) {}
+act h (b int) (int, int) {
+    if true {
+        g()
+    } else {}
+
+    if true {
+        g()
+    } else if false {
+        e = 2
+    } else {
+        c = 4
+    }
+}
 
 act t () (int, int) {}

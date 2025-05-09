@@ -21,7 +21,7 @@ type DoSourceListener struct {
 	program  *compiler.Program
 
 	blocks []*ir.Block
-	values []value.Value
+	values [][]value.Value
 }
 
 func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
@@ -34,19 +34,24 @@ func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
 	}
 }
 
-func (l *DoSourceListener) pushBlock(block *ir.Block)   { l.blocks = append(l.blocks, block) }
-func (l *DoSourceListener) popBlock()                   { l.blocks = l.blocks[:len(l.blocks)-1] }
-func (l *DoSourceListener) topBlock() *ir.Block         { return l.blocks[len(l.blocks)-1] }
-func (l *DoSourceListener) addValue(val ...value.Value) { l.values = append(l.values, val...) }
+func (l *DoSourceListener) pushBlock(block *ir.Block) { l.blocks = append(l.blocks, block) }
+func (l *DoSourceListener) popBlock()                 { l.blocks = l.blocks[:len(l.blocks)-1] }
+func (l *DoSourceListener) topBlock() *ir.Block       { return l.blocks[len(l.blocks)-1] }
+func (l *DoSourceListener) addValue(val ...value.Value) {
+	l.values[len(l.values)-1] = append(l.values[len(l.values)-1], val...)
+}
+func (l *DoSourceListener) newBlock() *ir.Block {
+	return l.currfunc.NewBlock("")
+}
 
 func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	funcname := ctx.NAME().GetText() // Объвить нужные переменные
 
 	function, _ := l.program.GetFunction(funcname)
 
-	entry := function.NewBlock("")
-	l.pushBlock(entry)
 	l.currfunc = function
+	entry := l.newBlock()
+	l.pushBlock(entry)
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
@@ -54,6 +59,8 @@ func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinition
 	retval.SetName("#ret")
 
 	l.topBlock().NewRet(retval)
+
+	l.popBlock()
 }
 
 func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
@@ -99,7 +106,7 @@ func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {
 			start := ctx.GetStart().GetColumn()
 			stream := ctx.GetStart().GetInputStream().GetSourceName()
 
-			l.program.AddError(fmt.Errorf("%v:%v:%v: %w", stream, line, start, err))
+			l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
 			return
 		}
 
@@ -121,7 +128,8 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 	}
 
 	lhvLen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
-	if lhvLen != len(l.values) {
+	values := l.values[len(l.values)-1]
+	if lhvLen != len(values) {
 		line := ctx.Expressiontuplelhv().GetStop().GetLine()
 		start := ctx.Expressiontuplelhv().GetStop().GetColumn()
 		stream := ctx.Expressiontuplelhv().GetStop().GetInputStream().GetSourceName()
@@ -154,7 +162,7 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 			}
 
 			// TODO: более умная проверка
-			l.topBlock().NewStore(l.values[i], variable)
+			l.topBlock().NewStore(values[i], variable)
 		case lhvi.Emptyexpression() != nil:
 		default:
 			line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
@@ -172,8 +180,65 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 	}
 }
 
+func (l *DoSourceListener) EnterStatement(ctx *parser.StatementContext) {
+	l.values = append(l.values, []value.Value{})
+}
 func (l *DoSourceListener) ExitStatement(ctx *parser.StatementContext) {
-	l.values = l.values[:0]
+	l.values = l.values[:len(l.values)-1]
+}
+
+func (l *DoSourceListener) EnterIfstatement(ctx *parser.IfstatementContext) {
+	trueBlock := l.newBlock()
+	falseBlock := l.newBlock()
+
+	l.pushBlock(falseBlock)
+	l.pushBlock(trueBlock)
+}
+
+func (l *DoSourceListener) ExitIfstatement(ctx *parser.IfstatementContext) {
+	baseBlock := l.blocks[len(l.blocks)-3]
+	falseBlock := l.blocks[len(l.blocks)-2]
+	trueBlock := l.blocks[len(l.blocks)-1]
+
+	values := l.values[len(l.values)-1]
+
+	if len(values) != 1 {
+		line := ctx.Expression().GetStart().GetLine()
+		start := ctx.Expression().GetStart().GetColumn()
+		stream := ctx.Expression().GetStart().GetInputStream().GetSourceName()
+
+		l.program.AddErrorf("%v:%v:%v: if statement expected 1 bool, actual: %v", stream, line, start, len(values))
+		return
+	}
+
+	// TODO: проверка на буль values[0]
+
+	l.popBlock()
+	l.popBlock()
+	l.popBlock()
+
+	resBlock := falseBlock
+	if ctx.Elsestatement() != nil {
+		resBlock = l.newBlock()
+		falseBlock.NewBr(resBlock)
+	}
+
+	baseBlock.NewCondBr(values[0], trueBlock, falseBlock)
+	trueBlock.NewBr(resBlock)
+
+	l.pushBlock(resBlock)
+}
+
+func (l *DoSourceListener) EnterElsestatement(ctx *parser.ElsestatementContext) {
+	idx1, idx2 := len(l.blocks)-1, len(l.blocks)-2
+	l.blocks[idx1], l.blocks[idx2] = l.blocks[idx2], l.blocks[idx1]
+	l.values = append(l.values, []value.Value{})
+}
+
+func (l *DoSourceListener) ExitElsestatement(ctx *parser.ElsestatementContext) {
+	idx1, idx2 := len(l.blocks)-1, len(l.blocks)-2
+	l.blocks[idx1], l.blocks[idx2] = l.blocks[idx2], l.blocks[idx1]
+	l.values = l.values[:len(l.values)-1]
 }
 
 func (l *DoSourceListener) ExitEmptyexpression(*parser.EmptyexpressionContext) {

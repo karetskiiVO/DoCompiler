@@ -36,6 +36,37 @@ define {} @g(i32 %b) {
 
 define { i32, i32 } @h(i32 %b) {
 0:
+	br i1 true, label %1, label %3
+
+1:
+	%2 = call {} @g()
+	br label %4
+
+3:
+	br label %4
+
+4:
+	br i1 true, label %5, label %10
+
+5:
+	%6 = call {} @g()
+	br label %11
+
+7:
+	br i1 false, label %8, label %9
+
+8:
+	store i32 2, i32* @e
+	br label %10
+
+9:
+	store i32 4, i32* @c
+	br label %10
+
+10:
+	br label %11
+
+11:
 	%"#ret" = alloca { i32, i32 }
 	ret { i32, i32 }* %"#ret"
 }
