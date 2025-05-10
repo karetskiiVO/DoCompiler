@@ -166,7 +166,31 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 				continue
 			}
 
+			// ============ ТИПОВАЯ ПРОВЕРКА ==================
+			varType := variable.Type().(*types.PointerType).ElemType // предполагаем, есть метод Type() у variable
+			valType := values[i].Type()                              // предполагаем, есть метод Type() у value
+
+			typesMatch := varType.Equal(valType) // или другой способ сравнения
+
+			if !typesMatch {
+				line := lhvi.GetStart().GetLine()
+				start := lhvi.GetStart().GetColumn()
+				stream := lhvi.GetStart().GetInputStream().GetSourceName()
+
+				l.program.AddErrorf(
+					"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
+					stream,
+					line,
+					start,
+					varname,
+					varType,
+					valType,
+				)
+				continue
+			}
+			// ================================================
 			// TODO: более умная проверка
+
 			l.topBlock().NewStore(values[i], variable)
 		case lhvi.Emptyexpression() != nil:
 		default:
