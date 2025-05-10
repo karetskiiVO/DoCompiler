@@ -1,17 +1,18 @@
-@tmpOut = global i32
-@a = global i32
-@b = global i32
-@c = global i32
-@d = global i32
-@e = global i32
+@tmpOut = global i32 zeroinitializer
+@a = global i32 zeroinitializer
+@b = global i32 zeroinitializer
+@c = global i32 zeroinitializer
+@d = global i32 zeroinitializer
+@e = global i32 zeroinitializer
 
 declare {} @tmpPrint()
 
 define {} @f() {
 0:
 	store i32 1, i32* @a
-	%"#ret" = alloca {}
-	ret {}* %"#ret"
+	%1 = alloca {}
+	%_ret = load {}, {}* %1
+	ret {} %_ret
 }
 
 define {} @main() {
@@ -24,14 +25,16 @@ define {} @main() {
 	%6 = extractvalue { i32, i32 } %4, 1
 	store i32 %5, i32* @b
 	store i32 %6, i32* @c
-	%"#ret" = alloca {}
-	ret {}* %"#ret"
+	%7 = alloca {}
+	%_ret = load {}, {}* %7
+	ret {} %_ret
 }
 
 define {} @g(i32 %b) {
 0:
-	%"#ret" = alloca {}
-	ret {}* %"#ret"
+	%1 = alloca {}
+	%_ret = load {}, {}* %1
+	ret {} %_ret
 }
 
 define { i32, i32 } @h(i32 %b) {
@@ -72,13 +75,14 @@ define { i32, i32 } @h(i32 %b) {
 
 define { i32, i32 } @t() {
 0:
-	%"#ret" = alloca { i32, i32 }
-	%1 = getelementptr i32, { i32, i32 }* %"#ret", i64 0
-	store i32 1, i32* %1
-	%2 = getelementptr i32, { i32, i32 }* %"#ret", i64 1
-	store i32 0, i32* %2
-	ret { i32, i32 }* %"#ret"
+	%1 = alloca { i32, i32 }
+	%2 = getelementptr i32, { i32, i32 }* %1, i64 0
+	store i32 1, i32* %2
+	%3 = getelementptr i32, { i32, i32 }* %1, i64 1
+	store i32 0, i32* %3
+	%_ret = load { i32, i32 }, { i32, i32 }* %1
+	ret { i32, i32 } %_ret
 
-3:
+4:
 	unreachable
 }

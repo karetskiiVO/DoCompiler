@@ -8,6 +8,7 @@ import (
 	"github.com/karetskiiVO/slices"
 
 	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -272,6 +273,7 @@ func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*ir
 	}
 
 	res := prog.mod.NewGlobal(varname, varType)
+	res.Init = constant.NewZeroInitializer(varType)
 	prog.variables[varname] = res
 
 	return res, nil

@@ -57,8 +57,9 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	rettype := l.currfunc.Sig.RetType.(*types.StructType)
 	if len(rettype.Fields) == 0 {
-		retval := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-		retval.SetName("#ret")
+		retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
+		retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
+		retval.SetName("_ret")
 		l.topBlock().NewRet(retval)
 	} else {
 		l.topBlock().NewUnreachable()
@@ -266,15 +267,16 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 		return
 	}
 
-	retval := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
+	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
 	for i, field := range rettype.Fields {
 
 		l.topBlock().NewStore(
 			values[i],
-			l.topBlock().NewGetElementPtr(field, retval, constant.NewIndex(constant.NewInt(types.I64, int64(i)))),
+			l.topBlock().NewGetElementPtr(field, retvalRef, constant.NewIndex(constant.NewInt(types.I64, int64(i)))),
 		)
 	}
-	retval.SetName("#ret")
+	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
+	retval.SetName("_ret")
 
 	l.topBlock().NewRet(retval)
 	l.popBlock()
