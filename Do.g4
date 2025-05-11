@@ -56,6 +56,9 @@ STRING: '"' .*? '"';
 COMPARETOKEN: ('==' | '<=' | '>=' | '<' | '>' | '!=');
 NUMBER: [-+]?[0-9]+;
 NAME:   [a-zA-Z][a-zA-Z0-9]*;
+
+COMMENT: '//' .*? '\n' -> skip;
+MULTILINECOMMENT: '/*' .*? '*/' -> skip;
 EMPTY:  [ \t\r\n]+ -> skip;
 
 // decl typename<T1 behavour, T2, ...> struct {}

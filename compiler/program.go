@@ -324,6 +324,10 @@ func (prog Program) Module() *ir.Module {
 	return prog.mod
 }
 
+func (prog Program) String() string {
+	return prog.mod.String()
+}
+
 func (prog *Program) NewScope() {
 	prog.variables = append(prog.variables, make(map[string]value.Value))
 }

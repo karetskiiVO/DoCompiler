@@ -27,10 +27,15 @@ func main() {
 	}
 
 	/********** Компиляция **********/
-	Compile(options.Args.SourceFileNames...)
+	program, err := Compile(options.Args.SourceFileNames...)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		os.WriteFile("program.ll", []byte(program.String()), 0644)
+	}
 }
 
-func Compile(srcFiles ...string) {
+func Compile(srcFiles ...string) (*compiler.Program, error) {
 	Listeners := &Listeners{
 		Listeners: make([]antlr.ParseTreeListener, len(srcFiles)),
 		roots:     make([]parser.IProgramContext, 0, len(srcFiles)),
@@ -71,8 +76,8 @@ func Compile(srcFiles ...string) {
 
 	err := program.Validate()
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
-	os.WriteFile("program.ll", []byte(program.Module().String()), 0644)
+	return program, nil
 }

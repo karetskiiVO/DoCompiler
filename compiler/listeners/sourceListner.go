@@ -98,8 +98,8 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 			stream,
 			line,
 			start,
-			len(args),
 			len(function.Sig.Params),
+			len(args),
 		)
 		return
 	}
@@ -163,11 +163,18 @@ func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 
 	// TODO: возможны рофлы с указателями
 	l.addValue(
-		l.topBlock().NewLoad(variable.Type(), variable),
+		l.topBlock().NewLoad(variable.Type().(*types.PointerType).ElemType, variable),
 	)
 }
 
 func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(ctx.GetText())
+			panic(r)
+		}
+	}()
+
 	if ctx.Expressiontuplelhv() == nil {
 		return
 	}
@@ -202,7 +209,6 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 		start := ctx.Expressiontuplelhv().GetStop().GetColumn()
 		stream := ctx.Expressiontuplelhv().GetStop().GetInputStream().GetSourceName()
 
-		fmt.Println(values)
 		l.program.AddErrorf(
 			"%v:%v:%v: incorrect number of expressions in the assignment expected: %v actual: %v",
 			stream,
