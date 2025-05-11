@@ -2,28 +2,26 @@ act f () {
     a, _ = 1, 3
 }
 
-var a int
-var b int
-var c int
-var d int
-var e int
+var a, b, c, d, e int
 
 act main () {
+    var a, aboba, c int
+
     tmpPrint()
     f()
     tmpPrint()
-    b, c = h()
+    b, c = h(a)
 }
 
 act g (b int) {}
 
 act h (b int) (int, int) {
     if true {
-        g()
+        g(1)
     } else {}
 
     if true {
-        g()
+        g(2)
     } else if false {
         e = 2
     } else {

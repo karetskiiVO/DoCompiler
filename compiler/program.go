@@ -16,7 +16,7 @@ import (
 type Program struct {
 	// TODO: таблица типов и видимостей
 	types     map[string]types.Type
-	variables map[string]value.Value
+	variables []map[string]value.Value
 	functions map[string]*ir.Func
 
 	mod *ir.Module
@@ -26,7 +26,7 @@ type Program struct {
 func NewProgram() *Program {
 	return (&Program{
 		types:     make(map[string]types.Type),
-		variables: make(map[string]value.Value),
+		variables: []map[string]value.Value{make(map[string]value.Value)}, // init globalscope
 		functions: make(map[string]*ir.Func),
 	}).init()
 }
@@ -187,7 +187,7 @@ func (prog *Program) RegisterFunction(funcname string, argnames, argtypenames, r
 		return nil, fmt.Errorf("function `%v` is already exist as function", funcname)
 	}
 
-	if _, ok := prog.variables[funcname]; ok {
+	if _, ok := prog.variables[0][funcname]; ok {
 		return nil, fmt.Errorf("function `%v` is already exist as variable", funcname)
 	}
 
@@ -242,9 +242,17 @@ func (prog *Program) GetFunction(funcname string) (*ir.Func, error) {
 }
 
 func (prog *Program) GetVariable(varname string) (value.Value, error) {
-	res, ok := prog.variables[varname]
-	if ok {
-		return res, nil
+	for i_ := range prog.variables {
+		i := len(prog.variables) - i_ - 1
+
+		res, ok := prog.variables[i][varname]
+		if ok {
+			return res, nil
+		}
+	}
+
+	if funcres, ok := prog.functions[varname]; ok {
+		return funcres, nil
 	}
 
 	return nil, fmt.Errorf("variable `%v` is not declared in this scope", varname)
@@ -254,7 +262,7 @@ func (prog Program) Types() map[string]types.Type {
 	return prog.types
 }
 
-func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*ir.Global, error) {
+func (prog *Program) RegisterGlobalVariable(varname, vartype string) (*ir.Global, error) {
 	if _, ok := prog.types[varname]; ok {
 		return nil, fmt.Errorf("variable %v is already exist as type", varname)
 	}
@@ -263,7 +271,7 @@ func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*ir
 		return nil, fmt.Errorf("variable %v is already exist as function", varname)
 	}
 
-	if _, ok := prog.variables[varname]; ok {
+	if _, ok := prog.variables[0][varname]; ok {
 		return nil, fmt.Errorf("variable %v is already exist as variable", varname)
 	}
 
@@ -274,13 +282,38 @@ func (prog *Program) RegisterGlobalVariable(varname string, vartype string) (*ir
 
 	res := prog.mod.NewGlobal(varname, varType)
 	res.Init = constant.NewZeroInitializer(varType)
-	prog.variables[varname] = res
+	prog.variables[0][varname] = res
 
 	return res, nil
 }
 
-func (prog Program) Variables() map[string]value.Value {
-	return prog.variables
+func (prog *Program) RegisterVariable(block *ir.Block, varname, vartype string) (value.Value, error) {
+	if len(prog.variables) == 1 {
+		return prog.RegisterGlobalVariable(varname, vartype)
+	}
+
+	if _, ok := prog.types[varname]; ok {
+		return nil, fmt.Errorf("variable %v is already exist as type", varname)
+	}
+
+	if _, ok := prog.functions[varname]; ok {
+		return nil, fmt.Errorf("variable %v is already exist as function", varname)
+	}
+
+	varType, err := prog.GetType(vartype)
+	if err != nil {
+		return nil, err
+	}
+
+	res := block.NewAlloca(varType)
+	res.SetName(varname)
+	prog.variables[len(prog.variables)-1][varname] = res
+
+	return res, nil
+}
+
+func (prog Program) GlobalVariables() map[string]value.Value {
+	return prog.variables[0]
 }
 
 func (prog Program) Functions() map[string]*ir.Func {
@@ -289,4 +322,16 @@ func (prog Program) Functions() map[string]*ir.Func {
 
 func (prog Program) Module() *ir.Module {
 	return prog.mod
+}
+
+func (prog *Program) NewScope() {
+	prog.variables = append(prog.variables, make(map[string]value.Value))
+}
+
+func (prog *Program) TerminateScope() {
+	if len(prog.variables) <= 1 {
+		panic("can't terminate")
+	}
+
+	prog.variables = prog.variables[:len(prog.variables)-1]
 }

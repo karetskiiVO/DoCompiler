@@ -48,6 +48,7 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 	funcname := ctx.NAME().GetText() // Объвить нужные переменные
 
 	function, _ := l.program.GetFunction(funcname)
+	l.program.NewScope()
 
 	l.currfunc = function
 	entry := l.newBlock()
@@ -66,6 +67,11 @@ func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinition
 	}
 
 	l.popBlock()
+	l.program.TerminateScope()
+}
+
+func (l *DoSourceListener) EnterFunctioncall(ctx *parser.FunctioncallContext) {
+	l.values = append(l.values, []value.Value{})
 }
 
 func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
@@ -79,8 +85,26 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
 		return
 	}
+	args := l.values[len(l.values)-1]
+	l.values = l.values[:len(l.values)-1]
 
-	call := l.topBlock().NewCall(function)
+	if len(args) != len(function.Sig.Params) {
+		line := ctx.Dividedname().GetStart().GetLine()
+		start := ctx.Dividedname().GetStart().GetColumn()
+		stream := ctx.Dividedname().GetStart().GetInputStream().GetSourceName()
+
+		l.program.AddErrorf(
+			"%v:%v:%v: mistmatch in argument values: expected: %v actual: %v",
+			stream,
+			line,
+			start,
+			len(args),
+			len(function.Sig.Params),
+		)
+		return
+	}
+	// TODO: typecheck
+	call := l.topBlock().NewCall(function, args...)
 
 	// unpack return
 	for i := range function.Sig.RetType.(*types.StructType).Fields {
@@ -125,6 +149,22 @@ func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {
 }
 
 func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
+	varname := ctx.Dividedname().GetText()
+
+	variable, err := l.program.GetVariable(varname)
+	if err != nil {
+		line := ctx.GetStart().GetLine()
+		start := ctx.GetStart().GetColumn()
+		stream := ctx.GetStart().GetInputStream().GetSourceName()
+
+		l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+		return
+	}
+
+	// TODO: возможны рофлы с указателями
+	l.addValue(
+		l.topBlock().NewLoad(variable.Type(), variable),
+	)
 }
 
 func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
@@ -134,18 +174,42 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 
 	lhvLen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
 	values := l.values[len(l.values)-1]
+	emptyExpr := 0
+	for i, lhvi := range ctx.Expressiontuplelhv().Expressiontuple().AllExpression() {
+		switch {
+		case lhvi.Variableuse() != nil:
+		case lhvi.Emptyexpression() != nil:
+			emptyExpr++
+		default:
+			line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
+			start := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetColumn()
+			stream := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetInputStream().GetSourceName()
+
+			l.program.AddErrorf(
+				"%v:%v:%v: expression `%v` is not mutable",
+				stream,
+				line,
+				start,
+				ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetText(),
+			)
+		}
+	}
+
+	values = values[lhvLen-emptyExpr:]
+
 	if lhvLen != len(values) {
 		line := ctx.Expressiontuplelhv().GetStop().GetLine()
 		start := ctx.Expressiontuplelhv().GetStop().GetColumn()
 		stream := ctx.Expressiontuplelhv().GetStop().GetInputStream().GetSourceName()
 
+		fmt.Println(values)
 		l.program.AddErrorf(
 			"%v:%v:%v: incorrect number of expressions in the assignment expected: %v actual: %v",
 			stream,
 			line,
 			start,
-			len(l.values),
 			lhvLen,
+			len(values),
 		)
 		return
 	}
@@ -170,7 +234,7 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 			varType := variable.Type().(*types.PointerType).ElemType // предполагаем, есть метод Type() у variable
 			valType := values[i].Type()                              // предполагаем, есть метод Type() у value
 
-			typesMatch := varType.Equal(valType) // или другой способ сравнения
+			typesMatch := (varType == valType) // или другой способ сравнения
 
 			if !typesMatch {
 				line := lhvi.GetStart().GetLine()
@@ -193,18 +257,6 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 
 			l.topBlock().NewStore(values[i], variable)
 		case lhvi.Emptyexpression() != nil:
-		default:
-			line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
-			start := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetColumn()
-			stream := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetInputStream().GetSourceName()
-
-			l.program.AddErrorf(
-				"%v:%v:%v: expression `%v` is not mutable",
-				stream,
-				line,
-				start,
-				ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetText(),
-			)
 		}
 	}
 }
@@ -305,4 +357,41 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 	l.topBlock().NewRet(retval)
 	l.popBlock()
 	l.pushBlock(l.newBlock())
+}
+
+func (l *DoSourceListener) ExitVardeclarationstatement(ctx *parser.VardeclarationstatementContext) {
+	vartype := ctx.Typename().GetText()
+
+	for _, varnameToken := range ctx.AllNAME() {
+		varname := varnameToken.GetText()
+
+		variable, err := l.program.RegisterVariable(l.topBlock(), varname, vartype)
+		if err != nil {
+			line := varnameToken.GetSymbol().GetLine()
+			start := varnameToken.GetSymbol().GetColumn()
+			stream := varnameToken.GetSymbol().GetInputStream().GetSourceName()
+
+			l.program.AddErrorf(
+				"%v:%v:%v: %w",
+				stream,
+				line,
+				start,
+				err,
+			)
+			continue
+		}
+
+		l.topBlock().NewStore(
+			constant.NewZeroInitializer(variable.Type().(*types.PointerType).ElemType),
+			variable,
+		)
+	}
+}
+
+func (l *DoSourceListener) EnterStatementblock(ctx *parser.StatementblockContext) {
+	l.program.NewScope()
+}
+
+func (l *DoSourceListener) ExitStatementblock(ctx *parser.StatementblockContext) {
+	l.program.TerminateScope()
 }

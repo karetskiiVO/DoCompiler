@@ -9,24 +9,34 @@ declare {} @tmpPrint()
 
 define {} @f() {
 0:
+	%1 = load i32*, i32* @a
 	store i32 1, i32* @a
-	%1 = alloca {}
-	%_ret = load {}, {}* %1
+	%2 = alloca {}
+	%_ret = load {}, {}* %2
 	ret {} %_ret
 }
 
 define {} @main() {
 0:
+	%a = alloca i32
+	store i32 zeroinitializer, i32* %a
+	%aboba = alloca i32
+	store i32 zeroinitializer, i32* %aboba
+	%c = alloca i32
+	store i32 zeroinitializer, i32* %c
 	%1 = call {} @tmpPrint()
 	%2 = call {} @f()
 	%3 = call {} @tmpPrint()
-	%4 = call { i32, i32 } @h()
-	%5 = extractvalue { i32, i32 } %4, 0
-	%6 = extractvalue { i32, i32 } %4, 1
-	store i32 %5, i32* @b
-	store i32 %6, i32* @c
-	%7 = alloca {}
-	%_ret = load {}, {}* %7
+	%4 = load i32*, i32* @b
+	%5 = load i32*, i32* %c
+	%6 = load i32*, i32* %a
+	%7 = call { i32, i32 } @h(i32* %6)
+	%8 = extractvalue { i32, i32 } %7, 0
+	%9 = extractvalue { i32, i32 } %7, 1
+	store i32 %8, i32* @b
+	store i32 %9, i32* %c
+	%10 = alloca {}
+	%_ret = load {}, {}* %10
 	ret {} %_ret
 }
 
@@ -42,34 +52,36 @@ define { i32, i32 } @h(i32 %b) {
 	br i1 true, label %1, label %3
 
 1:
-	%2 = call {} @g()
+	%2 = call {} @g(i32 1)
 	br label %4
 
 3:
 	br label %4
 
 4:
-	br i1 true, label %5, label %10
+	br i1 true, label %5, label %12
 
 5:
-	%6 = call {} @g()
-	br label %11
+	%6 = call {} @g(i32 2)
+	br label %13
 
 7:
-	br i1 false, label %8, label %9
+	br i1 false, label %8, label %10
 
 8:
+	%9 = load i32*, i32* @e
 	store i32 2, i32* @e
-	br label %10
-
-9:
-	store i32 4, i32* @c
-	br label %10
+	br label %12
 
 10:
-	br label %11
+	%11 = load i32*, i32* @c
+	store i32 4, i32* @c
+	br label %12
 
-11:
+12:
+	br label %13
+
+13:
 	unreachable
 }
 

@@ -4,7 +4,7 @@ program: definition* EOF;
 
 definition: functionDefinition | typeDefinition | globalVariableDefinition; // TODO: метод и глобальные переменные
 
-globalVariableDefinition: 'var' NAME typename; /* expression */
+globalVariableDefinition: 'var' NAME (',' NAME)* typename; /* expression */
 functionDefinition: 'act' NAME genericparamslist? '(' arglist ')' typetuple statementblock;
 typeDefinition: 'with' NAME genericparamslist? type;
 
@@ -27,14 +27,15 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: assign | ifstatement | returnstatement;
+statement: assign | ifstatement | returnstatement | vardeclarationstatement;
+vardeclarationstatement: 'var' NAME (',' NAME)* typename;
 assign: (expressiontuplelhv '=')? expressiontuplerhv;
 ifstatement: 'if' expression statementblock elsestatement?;
 elsestatement: 'else' (ifstatement | statementblock);
 returnstatement: 'return' expressiontuple;
 
 expressiontuple: expression (',' expression)*;
-expression: emptyexpression | variableuse | ('(' expressiontuple ')') | constantuse | functioncall;
+expression: emptyexpression | variableuse | constantuse | functioncall;
 functioncall: dividedname '(' expressiontuple? ')';
 
 expressiontuplelhv: expressiontuple;
