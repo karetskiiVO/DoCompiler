@@ -53,6 +53,14 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 	l.currfunc = function
 	entry := l.newBlock()
 	l.pushBlock(entry)
+	for _, arglistToken := range ctx.Arglist().AllArgsublist() {
+		argtype := arglistToken.Type_().GetText()
+		for _, argnameToken := range arglistToken.AllArgname() {
+			argname := argnameToken.GetText()
+
+			l.program.RegisterVariable(l.topBlock(), argname, argtype)
+		}
+	}
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
