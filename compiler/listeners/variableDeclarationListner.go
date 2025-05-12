@@ -43,7 +43,7 @@ func (l *DoVariableDeclarationListener) EnterFunctionDefinition(ctx *parser.Func
 	argnames := slices.Concat(
 		slices.Map(ctx.Arglist().AllArgsublist(), func(arglistctx parser.IArgsublistContext) []string {
 			return slices.Map(arglistctx.AllArgname(), func(argnamectx parser.IArgnameContext) string {
-				return argnamectx.GetText()
+				return "arg_"+argnamectx.GetText()
 			})
 		})...,
 	)

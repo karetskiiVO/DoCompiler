@@ -53,12 +53,24 @@ func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitio
 	l.currfunc = function
 	entry := l.newBlock()
 	l.pushBlock(entry)
+	i := 0
 	for _, arglistToken := range ctx.Arglist().AllArgsublist() {
 		argtype := arglistToken.Type_().GetText()
 		for _, argnameToken := range arglistToken.AllArgname() {
+			i++
 			argname := argnameToken.GetText()
 
-			l.program.RegisterVariable(l.topBlock(), argname, argtype)
+			variable, err := l.program.RegisterVariable(l.topBlock(), argname, argtype)
+			if err != nil {
+				line := argnameToken.GetStart().GetLine()
+				start := argnameToken.GetStart().GetColumn()
+				stream := argnameToken.GetStart().GetInputStream().GetSourceName()
+
+				l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+				continue
+			}
+
+			l.topBlock().NewStore(function.Params[i-1], variable)
 		}
 	}
 }

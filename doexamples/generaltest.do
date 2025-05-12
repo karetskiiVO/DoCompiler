@@ -1,11 +1,11 @@
 with A struct {}
 
-act f () {
-    tmpOut = 1
+act f (newVal int) {
+    tmpOut = newVal
 }
 
 act main () {
     tmpPrint()
-    f()
+    f(2)
     tmpPrint()
 }
