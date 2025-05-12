@@ -59,10 +59,10 @@ func Compile(srcFiles ...string) (*compiler.Program, error) {
 	})
 	Listeners.Exec()
 
-	Listeners.Set(func(int) antlr.ParseTreeListener {
-		return doListeners.NewDoTypeDefinitionListener(program)
-	})
-	Listeners.Exec()
+	// Listeners.Set(func(int) antlr.ParseTreeListener {
+	// 	return doListeners.NewDoTypeDefinitionListener(program)
+	// })
+	// Listeners.Exec()
 
 	Listeners.Set(func(int) antlr.ParseTreeListener {
 		return doListeners.NewDoVariableDeclarationListener(program)

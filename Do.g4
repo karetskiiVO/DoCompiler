@@ -10,7 +10,7 @@ typeDefinition: 'with' NAME genericparamslist? type;
 
 type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefinition; 
 
-structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield) ';')* '}';
+structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield))* '}';
 behavourdefinition: 'behavour' '{' '}';
 
 statementblock: '{' statement* '}';

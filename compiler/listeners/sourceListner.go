@@ -3,6 +3,7 @@ package doListeners
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
@@ -172,28 +173,64 @@ func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 	varname := ctx.Dividedname().GetText()
 
 	variable, err := l.program.GetVariable(varname)
-	if err != nil {
-		line := ctx.GetStart().GetLine()
-		start := ctx.GetStart().GetColumn()
-		stream := ctx.GetStart().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+	if err == nil {
+		// TODO: возможны рофлы с указателями
+		l.addValue(
+			l.topBlock().NewLoad(variable.Type().(*types.PointerType).ElemType, variable),
+		)
 		return
 	}
 
-	// TODO: возможны рофлы с указателями
-	l.addValue(
-		l.topBlock().NewLoad(variable.Type().(*types.PointerType).ElemType, variable),
-	)
+	// что если перед нами структура
+	idx := strings.LastIndexByte(varname, '.')
+	if idx != -1 {
+		fieldname := varname[idx+1:]
+		varname = varname[:idx]
+
+		variable, err = l.program.GetVariable(varname)
+		if err != nil {
+			line := ctx.GetStart().GetLine()
+			start := ctx.GetStart().GetColumn()
+			stream := ctx.GetStart().GetInputStream().GetSourceName()
+
+			l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+		}
+
+		var fieldidx int
+		fieldidx, err = l.program.GetFieldIdx(variable.Type().(*types.PointerType).ElemType, fieldname)
+		if err == nil { // точно структура с таким полем
+			// l.addValue()
+			fieldptr := l.topBlock().NewGetElementPtr(
+				variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx],
+				variable,
+				constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+			)
+
+			l.addValue(
+				l.topBlock().NewLoad(
+					fieldptr.ElemType,
+					fieldptr,
+				),
+			)
+		}
+
+		return
+	}
+
+	line := ctx.GetStart().GetLine()
+	start := ctx.GetStart().GetColumn()
+	stream := ctx.GetStart().GetInputStream().GetSourceName()
+
+	l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
 }
 
 func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println(ctx.GetText())
-			panic(r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Println(ctx.GetText())
+	// 		panic(r)
+	// 	}
+	// }()
 
 	if ctx.Expressiontuplelhv() == nil {
 		return
@@ -245,8 +282,81 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 		case lhvi.Variableuse() != nil:
 			varname := lhvi.GetText()
 
-			// TODO: тут должна быть таблица переменных
 			variable, err := l.program.GetVariable(varname)
+			if err == nil { // значит переменная
+				varType := variable.Type().(*types.PointerType).ElemType
+				valType := values[i].Type()
+
+				typesMatch := (varType == valType)
+
+				if !typesMatch {
+					line := lhvi.GetStart().GetLine()
+					start := lhvi.GetStart().GetColumn()
+					stream := lhvi.GetStart().GetInputStream().GetSourceName()
+
+					l.program.AddErrorf(
+						"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
+						stream,
+						line,
+						start,
+						varname,
+						l.program.Typename(varType),
+						l.program.Typename(valType),
+					)
+					continue
+				}
+
+				l.topBlock().NewStore(values[i], variable)
+			}
+
+			// что если перед нами структура
+			idx := strings.LastIndexByte(varname, '.')
+			if idx != -1 {
+				fieldname := varname[idx+1:]
+				varname = varname[:idx]
+
+				variable, err = l.program.GetVariable(varname)
+				if err == nil { //
+					var fieldidx int
+					fieldidx, err = l.program.GetFieldIdx(variable.Type().(*types.PointerType).ElemType, fieldname)
+					if err == nil { // точно структура с таким полем
+						// l.addValue()
+						fieldptr := l.topBlock().NewGetElementPtr(
+							variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx],
+							variable,
+							constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+						)
+
+						varType := variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx]
+						valType := values[i].Type()
+
+						typesMatch := (varType == valType)
+
+						if !typesMatch {
+							line := lhvi.GetStart().GetLine()
+							start := lhvi.GetStart().GetColumn()
+							stream := lhvi.GetStart().GetInputStream().GetSourceName()
+
+							l.program.AddErrorf(
+								"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
+								stream,
+								line,
+								start,
+								varname,
+								l.program.Typename(varType),
+								l.program.Typename(valType),
+							)
+							continue
+						}
+
+						l.topBlock().NewStore(
+							values[i],
+							fieldptr,
+						)
+					}
+				}
+			}
+
 			if err != nil {
 				line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
 				start := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetColumn()
@@ -255,33 +365,6 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 				l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
 				continue
 			}
-
-			// ============ ТИПОВАЯ ПРОВЕРКА ==================
-			varType := variable.Type().(*types.PointerType).ElemType // предполагаем, есть метод Type() у variable
-			valType := values[i].Type()                              // предполагаем, есть метод Type() у value
-
-			typesMatch := (varType == valType) // или другой способ сравнения
-
-			if !typesMatch {
-				line := lhvi.GetStart().GetLine()
-				start := lhvi.GetStart().GetColumn()
-				stream := lhvi.GetStart().GetInputStream().GetSourceName()
-
-				l.program.AddErrorf(
-					"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
-					stream,
-					line,
-					start,
-					varname,
-					varType,
-					valType,
-				)
-				continue
-			}
-			// ================================================
-			// TODO: более умная проверка
-
-			l.topBlock().NewStore(values[i], variable)
 		case lhvi.Emptyexpression() != nil:
 		}
 	}

@@ -16,8 +16,11 @@ import (
 type Program struct {
 	// TODO: таблица типов и видимостей
 	types     map[string]types.Type
+	typenames map[types.Type]string
 	variables []map[string]value.Value
 	functions map[string]*ir.Func
+
+	structFields map[types.Type]map[string]int
 
 	mod *ir.Module
 	err error
@@ -26,8 +29,11 @@ type Program struct {
 func NewProgram() *Program {
 	return (&Program{
 		types:     make(map[string]types.Type),
+		typenames: make(map[types.Type]string),
 		variables: []map[string]value.Value{make(map[string]value.Value)}, // init globalscope
 		functions: make(map[string]*ir.Func),
+
+		structFields: make(map[types.Type]map[string]int),
 	}).init()
 }
 
@@ -39,7 +45,9 @@ func (prog *Program) init() *Program {
 	prog.mod = ir.NewModule()
 
 	prog.types["int"] = types.I32
+	prog.typenames[types.I32] = "int"
 	prog.types["bool"] = types.I1
+	prog.typenames[types.I1] = "bool"
 
 	// очень временное решение
 	prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
@@ -85,23 +93,49 @@ func isTypeTupple(typename string) bool {
 	return strings.HasPrefix(typename, "(")
 }
 
-func (prog *Program) RegisterType(typename string) (types.Type, error) {
+type TypeDefiner struct {
+	Typ        types.Type
+	Fieldnames []string
+}
+
+func (prog *Program) RegisterType(typename string, definition ...TypeDefiner) (types.Type, error) { // так делать не хорошо - но увы
 	if _, ok := prog.types[typename]; ok {
 		return nil, fmt.Errorf("type `%v` is already exist", typename)
 	}
 
+	var res types.Type
 	if isFuncType(typename) {
-		return prog.registerFuncType(typename)
+		var err error
+		res, err = prog.registerFuncType(typename)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	if isTypeTupple(typename) {
-		return prog.registerTypeTupple(typename)
+		var err error
+		res, err = prog.registerTypeTupple(typename)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// TODO: struct, behovour and so on
+	if len(definition) == 1 {
+		res = definition[0].Typ
 
-	res := types.Type(nil)
+		fieldmap := make(map[string]int)
+		for i, fieldname := range definition[0].Fieldnames {
+			if _, ok := fieldmap[fieldname]; ok {
+				return nil, fmt.Errorf("in struct `%v` field `%v` is already defined", typename, fieldname)
+			}
+
+			fieldmap[fieldname] = i
+		}
+
+		prog.structFields[res] = fieldmap
+	}
+
 	prog.types[typename] = res
+	prog.typenames[res] = typename
 	return res, nil
 }
 
@@ -332,10 +366,29 @@ func (prog *Program) NewScope() {
 	prog.variables = append(prog.variables, make(map[string]value.Value))
 }
 
+func (prog Program) Typename(typ types.Type) string {
+	return prog.typenames[typ]
+}
+
 func (prog *Program) TerminateScope() {
 	if len(prog.variables) <= 1 {
 		panic("can't terminate")
 	}
 
 	prog.variables = prog.variables[:len(prog.variables)-1]
+}
+
+func (prog Program) GetFieldIdx(typ types.Type, fieldname string) (int, error) {
+	fieldmap, ok := prog.structFields[typ]
+
+	if !ok {
+		return -1, fmt.Errorf("type `%v` is not struct", prog.Typename(typ))
+	}
+
+	res, ok := fieldmap[fieldname]
+	if !ok {
+		return -1, fmt.Errorf("type `%v` has no field `%v`",prog.Typename(typ), fieldname)
+	}
+
+	return res, nil
 }
