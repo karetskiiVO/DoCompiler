@@ -17,13 +17,13 @@ define {} @main() {
 0:
 	%struc = alloca { i32, i32, i32, i1 }
 	store { i32, i32, i32, i1 } zeroinitializer, { i32, i32, i32, i1 }* %struc
-	%1 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 0
+	%1 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 0
 	store i32 10, i32* %1
-	%2 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 1
+	%2 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 1
 	store i32 11, i32* %2
-	%3 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 2
+	%3 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 2
 	store i32 12, i32* %3
-	%4 = getelementptr i1, { i32, i32, i32, i1 }* %struc, i32 3
+	%4 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 3
 	store i1 true, i1* %4
 	%5 = call {} @tmpPrint()
 	%6 = call {} @f(i32 2)
@@ -32,21 +32,21 @@ define {} @main() {
 	store i32 zeroinitializer, i32* %a
 	%8 = load i32, i32* @tmpOut
 	store i32 %8, i32* %a
-	%9 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 0
-	%10 = load i32, i32* %9
-	%11 = call {} @println(i32 %10)
+	%9 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 0
+	%10 = load { i32, i32, i32, i1 }, i32* %9
+	%11 = call {} @println({ i32, i32, i32, i1 } %10)
 	br i1 true, label %12, label %16
 
 12:
-	%13 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 1
-	%14 = load i32, i32* %13
-	%15 = call {} @println(i32 %14)
+	%13 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 1
+	%14 = load { i32, i32, i32, i1 }, i32* %13
+	%15 = call {} @println({ i32, i32, i32, i1 } %14)
 	br label %20
 
 16:
-	%17 = getelementptr i32, { i32, i32, i32, i1 }* %struc, i32 1
-	%18 = load i32, i32* %17
-	%19 = call {} @println(i32 %18)
+	%17 = getelementptr { i32, i32, i32, i1 }, { i32, i32, i32, i1 }* %struc, i32 0, i32 1
+	%18 = load { i32, i32, i32, i1 }, i32* %17
+	%19 = call {} @println({ i32, i32, i32, i1 } %18)
 	br label %20
 
 20:

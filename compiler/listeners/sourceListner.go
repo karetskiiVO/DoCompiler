@@ -222,11 +222,11 @@ func (l *DoSourceListener) processStructField(varname string, ctx *parser.Variab
 		return true
 	}
 
-	fieldType := structType.(*types.StructType).Fields[fieldidx]
 	fieldptr := l.topBlock().NewGetElementPtr(
-		fieldType,
+		structType,
 		structVar,
-		constant.NewIndex(constant.NewInt(types.I32, int64(fieldidx))),
+		constant.NewInt(types.I32, 0),
+		constant.NewInt(types.I32, int64(fieldidx)),
 	)
 
 	l.addValue(l.topBlock().NewLoad(fieldptr.ElemType, fieldptr))
@@ -253,25 +253,7 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 	l.processAssignments(lhvExpressions, values)
 }
 
-func (l *DoSourceListener) countEmptyExpressions(expressions []parser.IExpressionContext) int {
-	count := 0
-	for _, expr := range expressions {
-		if expr.Emptyexpression() != nil {
-			count++
-		}
-	}
-	return count
-}
-
-func (l *DoSourceListener) validateMutableExpressions(expressions []parser.IExpressionContext) {
-	for _, expr := range expressions {
 		if expr.Variableuse() == nil && expr.Emptyexpression() == nil {
-			loc := expr.GetStart()
-			l.reportError(loc, fmt.Errorf("expression `%v` is not mutable", expr.GetText()))
-		}
-	}
-}
-
 func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionlhvContext, values []value.Value) {
 	for i, expr := range expressions {
 		if expr.Variableuselhv() != nil {
@@ -345,9 +327,10 @@ func (l *DoSourceListener) assignToStructField(varname, fieldname string, value 
 	}
 
 	fieldptr := l.topBlock().NewGetElementPtr(
-		fieldType,
+		structType,
 		variable,
-		constant.NewIndex(constant.NewInt(types.I32, int64(fieldidx))),
+		constant.NewInt(types.I32, 0),
+		constant.NewInt(types.I32, int64(fieldidx)),
 	)
 
 	l.topBlock().NewStore(value, fieldptr)
@@ -427,17 +410,18 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 
 func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values []value.Value) {
 	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-
-	for i, field := range rettype.Fields {
+	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
+	
+	for i := range rettype.Fields {
 		fieldPtr := l.topBlock().NewGetElementPtr(
-			field,
-			retvalRef,
-			constant.NewIndex(constant.NewInt(types.I32, int64(i))),
+			rettype,
+			retval,
+			constant.NewInt(types.I32, 0),
+			constant.NewInt(types.I32, int64(i)),
 		)
 		l.topBlock().NewStore(values[i], fieldPtr)
 	}
 
-	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
 	retval.SetName("_ret")
 
 	l.topBlock().NewRet(retval)
