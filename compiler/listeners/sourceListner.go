@@ -253,7 +253,6 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 	l.processAssignments(lhvExpressions, values)
 }
 
-		if expr.Variableuse() == nil && expr.Emptyexpression() == nil {
 func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionlhvContext, values []value.Value) {
 	for i, expr := range expressions {
 		if expr.Variableuselhv() != nil {
