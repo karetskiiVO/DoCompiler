@@ -15,6 +15,7 @@ act main () {
     struc.fst  = 10
     struc.snd  = 11
     struc.thrd = 12
+    struc.c    = true
 
     tmpPrint()
     f(2)

@@ -226,7 +226,7 @@ func (l *DoSourceListener) processStructField(varname string, ctx *parser.Variab
 	fieldptr := l.topBlock().NewGetElementPtr(
 		fieldType,
 		structVar,
-		constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+		constant.NewIndex(constant.NewInt(types.I32, int64(fieldidx))),
 	)
 
 	l.addValue(l.topBlock().NewLoad(fieldptr.ElemType, fieldptr))
@@ -238,14 +238,10 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 		return
 	}
 
-	lhvExpressions := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()
+	lhvExpressions := ctx.Expressiontuplelhv().AllExpressionlhv()
 	lhvLen := len(lhvExpressions)
 	values := l.currentValues()
-	emptyExpr := l.countEmptyExpressions(lhvExpressions)
 
-	l.validateMutableExpressions(lhvExpressions)
-
-	values = values[lhvLen-emptyExpr:]
 	if lhvLen != len(values) {
 		stop := ctx.Expressiontuplelhv().GetStop()
 		l.reportError(stop, fmt.Errorf(
@@ -276,15 +272,15 @@ func (l *DoSourceListener) validateMutableExpressions(expressions []parser.IExpr
 	}
 }
 
-func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionContext, values []value.Value) {
+func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionlhvContext, values []value.Value) {
 	for i, expr := range expressions {
-		if expr.Variableuse() != nil {
+		if expr.Variableuselhv() != nil {
 			l.processVariableAssignment(expr, values[i])
 		}
 	}
 }
 
-func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionContext, value value.Value) {
+func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvContext, value value.Value) {
 	varname := expr.GetText()
 
 	if err := l.assignToVariable(varname, value, expr); err == nil {
@@ -306,7 +302,7 @@ func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionCont
 	}
 }
 
-func (l *DoSourceListener) assignToVariable(varname string, value value.Value, expr parser.IExpressionContext) error {
+func (l *DoSourceListener) assignToVariable(varname string, value value.Value, expr parser.IExpressionlhvContext) error {
 	variable, err := l.program.GetVariable(varname)
 	if err != nil {
 		return err
@@ -326,7 +322,7 @@ func (l *DoSourceListener) assignToVariable(varname string, value value.Value, e
 	return nil
 }
 
-func (l *DoSourceListener) assignToStructField(varname, fieldname string, value value.Value, expr parser.IExpressionContext) error {
+func (l *DoSourceListener) assignToStructField(varname, fieldname string, value value.Value, expr parser.IExpressionlhvContext) error {
 	variable, err := l.program.GetVariable(varname)
 	if err != nil {
 		return err
@@ -351,7 +347,7 @@ func (l *DoSourceListener) assignToStructField(varname, fieldname string, value 
 	fieldptr := l.topBlock().NewGetElementPtr(
 		fieldType,
 		variable,
-		constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+		constant.NewIndex(constant.NewInt(types.I32, int64(fieldidx))),
 	)
 
 	l.topBlock().NewStore(value, fieldptr)
@@ -436,7 +432,7 @@ func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values
 		fieldPtr := l.topBlock().NewGetElementPtr(
 			field,
 			retvalRef,
-			constant.NewIndex(constant.NewInt(types.I64, int64(i))),
+			constant.NewIndex(constant.NewInt(types.I32, int64(i))),
 		)
 		l.topBlock().NewStore(values[i], fieldPtr)
 	}
