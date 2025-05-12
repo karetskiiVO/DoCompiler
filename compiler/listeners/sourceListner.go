@@ -15,6 +15,7 @@ import (
 	"github.com/karetskiiVO/DoCompiler/compiler"
 )
 
+// DoSourceListener implements the parser.DoListener interface
 type DoSourceListener struct {
 	*parser.BaseDoListener
 
@@ -25,6 +26,7 @@ type DoSourceListener struct {
 	values [][]value.Value
 }
 
+// NewDoSourceListener creates a new listener for the Do language
 func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
 	if program.Error() != nil {
 		return new(parser.BaseDoListener)
@@ -35,49 +37,109 @@ func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
 	}
 }
 
+// Block management helpers
 func (l *DoSourceListener) pushBlock(block *ir.Block) { l.blocks = append(l.blocks, block) }
-func (l *DoSourceListener) popBlock()                 { l.blocks = l.blocks[:len(l.blocks)-1] }
-func (l *DoSourceListener) topBlock() *ir.Block       { return l.blocks[len(l.blocks)-1] }
+func (l *DoSourceListener) popBlock() *ir.Block {
+	lastBlock := l.blocks[len(l.blocks)-1]
+	l.blocks = l.blocks[:len(l.blocks)-1]
+	return lastBlock
+}
+func (l *DoSourceListener) topBlock() *ir.Block { return l.blocks[len(l.blocks)-1] }
+func (l *DoSourceListener) newBlock() *ir.Block { return l.currfunc.NewBlock("") }
+
+// Value management helpers
 func (l *DoSourceListener) addValue(val ...value.Value) {
 	l.values[len(l.values)-1] = append(l.values[len(l.values)-1], val...)
 }
-func (l *DoSourceListener) newBlock() *ir.Block {
-	return l.currfunc.NewBlock("")
+
+func (l *DoSourceListener) currentValues() []value.Value {
+	return l.values[len(l.values)-1]
 }
 
+func (l *DoSourceListener) popValues() []value.Value {
+	vals := l.values[len(l.values)-1]
+	l.values = l.values[:len(l.values)-1]
+	return vals
+}
+
+// Error reporting
+func (l *DoSourceListener) reportError(token antlr.Token, err error) {
+	l.reportErrorAt(token.GetLine(), token.GetColumn(), token.GetInputStream().GetSourceName(), err)
+}
+
+func (l *DoSourceListener) reportErrorAt(line, column int, source string, err error) {
+	l.program.AddErrorf("%v:%v:%v: %v", source, line, column, err)
+}
+
+// Utility methods for common operations
+func (l *DoSourceListener) getVariableAndType(varname string) (value.Value, types.Type, error) {
+	variable, err := l.program.GetVariable(varname)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	varType := variable.Type().(*types.PointerType).ElemType
+	return variable, varType, nil
+}
+
+func (l *DoSourceListener) getStructField(structVar value.Value, fieldname string) (value.Value, types.Type, error) {
+	structType := structVar.Type().(*types.PointerType).ElemType
+	fieldidx, err := l.program.GetFieldIdx(structType, fieldname)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	fieldType := structType.(*types.StructType).Fields[fieldidx]
+	fieldptr := l.topBlock().NewGetElementPtr(
+		fieldType,
+		structVar,
+		constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+	)
+	
+	return fieldptr, fieldType, nil
+}
+
+// Function Definition
 func (l *DoSourceListener) EnterFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
-	funcname := ctx.NAME().GetText() // Объвить нужные переменные
-
+	funcname := ctx.NAME().GetText()
 	function, _ := l.program.GetFunction(funcname)
+	
 	l.program.NewScope()
-
 	l.currfunc = function
+	
+	// Create entry block
 	entry := l.newBlock()
 	l.pushBlock(entry)
-	i := 0
+	
+	// Process function arguments
+	l.processFunctionArguments(ctx)
+}
+
+func (l *DoSourceListener) processFunctionArguments(ctx *parser.FunctionDefinitionContext) {
+	paramIndex := 0
+	
 	for _, arglistToken := range ctx.Arglist().AllArgsublist() {
 		argtype := arglistToken.Type_().GetText()
+		
 		for _, argnameToken := range arglistToken.AllArgname() {
-			i++
+			paramIndex++
 			argname := argnameToken.GetText()
 
 			variable, err := l.program.RegisterVariable(l.topBlock(), argname, argtype)
 			if err != nil {
-				line := argnameToken.GetStart().GetLine()
-				start := argnameToken.GetStart().GetColumn()
-				stream := argnameToken.GetStart().GetInputStream().GetSourceName()
-
-				l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+				l.reportError(argnameToken.GetStart(), err)
 				continue
 			}
 
-			l.topBlock().NewStore(function.Params[i-1], variable)
+			l.topBlock().NewStore(l.currfunc.Params[paramIndex-1], variable)
 		}
 	}
 }
 
 func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinitionContext) {
 	rettype := l.currfunc.Sig.RetType.(*types.StructType)
+	
+	// Add a return statement for functions without explicit returns
 	if len(rettype.Fields) == 0 {
 		retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
 		retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
@@ -91,6 +153,7 @@ func (l *DoSourceListener) ExitFunctionDefinition(ctx *parser.FunctionDefinition
 	l.program.TerminateScope()
 }
 
+// Function Calls
 func (l *DoSourceListener) EnterFunctioncall(ctx *parser.FunctioncallContext) {
 	l.values = append(l.values, []value.Value{})
 }
@@ -99,284 +162,270 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 	funcname := ctx.Dividedname().GetText()
 	function, err := l.program.GetFunction(funcname)
 	if err != nil {
-		line := ctx.Dividedname().GetStart().GetLine()
-		start := ctx.Dividedname().GetStart().GetColumn()
-		stream := ctx.Dividedname().GetStart().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+		l.reportError(ctx.Dividedname().GetStart(), err)
 		return
 	}
-	args := l.values[len(l.values)-1]
-	l.values = l.values[:len(l.values)-1]
-
+	
+	args := l.popValues()
+	
+	// Validate argument count
 	if len(args) != len(function.Sig.Params) {
-		line := ctx.Dividedname().GetStart().GetLine()
-		start := ctx.Dividedname().GetStart().GetColumn()
-		stream := ctx.Dividedname().GetStart().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf(
-			"%v:%v:%v: mistmatch in argument values: expected: %v actual: %v",
-			stream,
-			line,
-			start,
-			len(function.Sig.Params),
-			len(args),
-		)
+		l.reportError(ctx.Dividedname().GetStart(), 
+			fmt.Errorf("mistmatch in argument values: expected: %v actual: %v", 
+				len(function.Sig.Params), len(args)))
 		return
 	}
-	// TODO: typecheck
+	
+	// Generate function call
 	call := l.topBlock().NewCall(function, args...)
 
-	// unpack return
-	for i := range function.Sig.RetType.(*types.StructType).Fields {
-		l.addValue(
-			l.topBlock().NewExtractValue(call, uint64(i)),
-		)
-		// не работает
-		//l.topBlock().NewGetElementPtr(types.NewPointer(typ), call, constant.NewInt(types.I64, int64(i)))
+	// Extract return values
+	returnType := function.Sig.RetType.(*types.StructType)
+	for i := range returnType.Fields {
+		l.addValue(l.topBlock().NewExtractValue(call, uint64(i)))
 	}
 }
 
+// Constants
 func (l *DoSourceListener) ExitConstantuse(ctx *parser.ConstantuseContext) {
-	switch {
-	case ctx.Bool_() != nil:
-		typ, _ := l.program.GetType("bool")
-		val := int64(0)
-		if ctx.Bool_().GetText() == "true" {
-			val = 1
-		}
-
-		l.addValue(
-			constant.NewInt(typ.(*types.IntType), val),
-		)
-	case ctx.Number() != nil:
-		val, err := strconv.ParseInt(ctx.Number().GetText(), 0, 64)
-		if err != nil { // unricheable
-			line := ctx.GetStart().GetLine()
-			start := ctx.GetStart().GetColumn()
-			stream := ctx.GetStart().GetInputStream().GetSourceName()
-
-			l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
-			return
-		}
-
-		typ, _ := l.program.GetType("int")
-		l.addValue(
-			constant.NewInt(typ.(*types.IntType), int64(val)),
-		)
-	default:
-		panic(fmt.Errorf("not implemented: %v", ctx.GetText()))
+	if ctx.Bool_() != nil {
+		l.processBoolConstant(ctx)
+	} else if ctx.Number() != nil {
+		l.processNumberConstant(ctx)
+	} else {
+		panic(fmt.Errorf("unsupported constant type: %v", ctx.GetText()))
 	}
 }
 
+func (l *DoSourceListener) processBoolConstant(ctx *parser.ConstantuseContext) {
+	typ, _ := l.program.GetType("bool")
+	val := int64(0)
+	if ctx.Bool_().GetText() == "true" {
+		val = 1
+	}
+
+	l.addValue(constant.NewInt(typ.(*types.IntType), val))
+}
+
+func (l *DoSourceListener) processNumberConstant(ctx *parser.ConstantuseContext) {
+	val, err := strconv.ParseInt(ctx.Number().GetText(), 0, 64)
+	if err != nil {
+		l.reportError(ctx.GetStart(), err)
+		return
+	}
+
+	typ, _ := l.program.GetType("int")
+	l.addValue(constant.NewInt(typ.(*types.IntType), int64(val)))
+}
+
+// Variable Use
 func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 	varname := ctx.Dividedname().GetText()
 
-	variable, err := l.program.GetVariable(varname)
-	if err == nil {
-		// TODO: возможны рофлы с указателями
-		l.addValue(
-			l.topBlock().NewLoad(variable.Type().(*types.PointerType).ElemType, variable),
-		)
+	// Try to process as a simple variable
+	if l.processSimpleVariable(varname) {
 		return
 	}
 
-	// что если перед нами структура
-	idx := strings.LastIndexByte(varname, '.')
-	if idx != -1 {
-		fieldname := varname[idx+1:]
-		varname = varname[:idx]
-
-		variable, err = l.program.GetVariable(varname)
-		if err != nil {
-			line := ctx.GetStart().GetLine()
-			start := ctx.GetStart().GetColumn()
-			stream := ctx.GetStart().GetInputStream().GetSourceName()
-
-			l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
-		}
-
-		var fieldidx int
-		fieldidx, err = l.program.GetFieldIdx(variable.Type().(*types.PointerType).ElemType, fieldname)
-		if err == nil { // точно структура с таким полем
-			// l.addValue()
-			fieldptr := l.topBlock().NewGetElementPtr(
-				variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx],
-				variable,
-				constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
-			)
-
-			l.addValue(
-				l.topBlock().NewLoad(
-					fieldptr.ElemType,
-					fieldptr,
-				),
-			)
-		}
-
+	// Try to process as a struct field
+	if l.processStructField(varname, ctx) {
 		return
 	}
 
-	line := ctx.GetStart().GetLine()
-	start := ctx.GetStart().GetColumn()
-	stream := ctx.GetStart().GetInputStream().GetSourceName()
-
-	l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
+	// If we get here, the variable couldn't be found
+	l.reportError(ctx.GetStart(), fmt.Errorf("unknown variable '%s'", varname))
 }
 
-func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		fmt.Println(ctx.GetText())
-	// 		panic(r)
-	// 	}
-	// }()
+func (l *DoSourceListener) processSimpleVariable(varname string) bool {
+	variable, err := l.program.GetVariable(varname)
+	if err != nil {
+		return false
+	}
 
+	varType := variable.Type().(*types.PointerType).ElemType
+	l.addValue(l.topBlock().NewLoad(varType, variable))
+	return true
+}
+
+func (l *DoSourceListener) processStructField(varname string, ctx *parser.VariableuseContext) bool {
+	idx := strings.LastIndexByte(varname, '.')
+	if idx == -1 {
+		return false
+	}
+
+	// Split into variable name and field name
+	fieldname := varname[idx+1:]
+	structVarname := varname[:idx]
+
+	// Get the variable representing the struct
+	structVar, err := l.program.GetVariable(structVarname)
+	if err != nil {
+		l.reportError(ctx.GetStart(), err)
+		return true // We handled this case with an error
+	}
+
+	// Get the field's index in the struct
+	structType := structVar.Type().(*types.PointerType).ElemType
+	fieldidx, err := l.program.GetFieldIdx(structType, fieldname)
+	if err != nil {
+		l.reportError(ctx.GetStart(), err)
+		return true
+	}
+
+	// Create a pointer to the struct field and load its value
+	fieldType := structType.(*types.StructType).Fields[fieldidx]
+	fieldptr := l.topBlock().NewGetElementPtr(
+		fieldType,
+		structVar,
+		constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+	)
+
+	l.addValue(l.topBlock().NewLoad(fieldptr.ElemType, fieldptr))
+	return true
+}
+
+// Assignment
+func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 	if ctx.Expressiontuplelhv() == nil {
 		return
 	}
 
-	lhvLen := len(ctx.Expressiontuplelhv().Expressiontuple().AllExpression())
-	values := l.values[len(l.values)-1]
-	emptyExpr := 0
-	for i, lhvi := range ctx.Expressiontuplelhv().Expressiontuple().AllExpression() {
-		switch {
-		case lhvi.Variableuse() != nil:
-		case lhvi.Emptyexpression() != nil:
-			emptyExpr++
-		default:
-			line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
-			start := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetColumn()
-			stream := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetInputStream().GetSourceName()
+	lhvExpressions := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()
+	lhvLen := len(lhvExpressions)
+	values := l.currentValues()
+	emptyExpr := l.countEmptyExpressions(lhvExpressions)
 
-			l.program.AddErrorf(
-				"%v:%v:%v: expression `%v` is not mutable",
-				stream,
-				line,
-				start,
-				ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetText(),
-			)
-		}
-	}
+	// Validate expressions are mutable
+	l.validateMutableExpressions(lhvExpressions)
 
+	// Adjust values based on empty expressions
 	values = values[lhvLen-emptyExpr:]
 
+	// Validate correct number of expressions
 	if lhvLen != len(values) {
-		line := ctx.Expressiontuplelhv().GetStop().GetLine()
-		start := ctx.Expressiontuplelhv().GetStop().GetColumn()
-		stream := ctx.Expressiontuplelhv().GetStop().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf(
-			"%v:%v:%v: incorrect number of expressions in the assignment expected: %v actual: %v",
-			stream,
-			line,
-			start,
-			lhvLen,
-			len(values),
-		)
+		stop := ctx.Expressiontuplelhv().GetStop()
+		l.reportError(stop, fmt.Errorf(
+			"incorrect number of expressions in the assignment expected: %v actual: %v",
+			lhvLen, len(values)))
 		return
 	}
 
-	for i, lhvi := range ctx.Expressiontuplelhv().Expressiontuple().AllExpression() {
-		switch {
-		case lhvi.Variableuse() != nil:
-			varname := lhvi.GetText()
+	// Process assignments
+	l.processAssignments(lhvExpressions, values)
+}
 
-			variable, err := l.program.GetVariable(varname)
-			if err == nil { // значит переменная
-				varType := variable.Type().(*types.PointerType).ElemType
-				valType := values[i].Type()
+func (l *DoSourceListener) countEmptyExpressions(expressions []parser.IExpressionContext) int {
+	count := 0
+	for _, expr := range expressions {
+		if expr.Emptyexpression() != nil {
+			count++
+		}
+	}
+	return count
+}
 
-				typesMatch := (varType == valType)
-
-				if !typesMatch {
-					line := lhvi.GetStart().GetLine()
-					start := lhvi.GetStart().GetColumn()
-					stream := lhvi.GetStart().GetInputStream().GetSourceName()
-
-					l.program.AddErrorf(
-						"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
-						stream,
-						line,
-						start,
-						varname,
-						l.program.Typename(varType),
-						l.program.Typename(valType),
-					)
-					continue
-				}
-
-				l.topBlock().NewStore(values[i], variable)
-			}
-
-			// что если перед нами структура
-			idx := strings.LastIndexByte(varname, '.')
-			if idx != -1 {
-				fieldname := varname[idx+1:]
-				varname = varname[:idx]
-
-				variable, err = l.program.GetVariable(varname)
-				if err == nil { //
-					var fieldidx int
-					fieldidx, err = l.program.GetFieldIdx(variable.Type().(*types.PointerType).ElemType, fieldname)
-					if err == nil { // точно структура с таким полем
-						// l.addValue()
-						fieldptr := l.topBlock().NewGetElementPtr(
-							variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx],
-							variable,
-							constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
-						)
-
-						varType := variable.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[fieldidx]
-						valType := values[i].Type()
-
-						typesMatch := (varType == valType)
-
-						if !typesMatch {
-							line := lhvi.GetStart().GetLine()
-							start := lhvi.GetStart().GetColumn()
-							stream := lhvi.GetStart().GetInputStream().GetSourceName()
-
-							l.program.AddErrorf(
-								"%v:%v:%v: type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
-								stream,
-								line,
-								start,
-								varname,
-								l.program.Typename(varType),
-								l.program.Typename(valType),
-							)
-							continue
-						}
-
-						l.topBlock().NewStore(
-							values[i],
-							fieldptr,
-						)
-					}
-				}
-			}
-
-			if err != nil {
-				line := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetLine()
-				start := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetColumn()
-				stream := ctx.Expressiontuplelhv().Expressiontuple().AllExpression()[i].GetStart().GetInputStream().GetSourceName()
-
-				l.program.AddErrorf("%v:%v:%v: %w", stream, line, start, err)
-				continue
-			}
-		case lhvi.Emptyexpression() != nil:
+func (l *DoSourceListener) validateMutableExpressions(expressions []parser.IExpressionContext) {
+	for _, expr := range expressions {
+		if expr.Variableuse() == nil && expr.Emptyexpression() == nil {
+			loc := expr.GetStart()
+			l.reportError(loc, fmt.Errorf("expression `%v` is not mutable", expr.GetText()))
 		}
 	}
 }
 
+func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionContext, values []value.Value) {
+	for i, expr := range expressions {
+		if expr.Variableuse() != nil {
+			l.processVariableAssignment(expr, values[i])
+		}
+	}
+}
+
+func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionContext, value value.Value) {
+	varname := expr.GetText()
+
+	// Try simple variable assignment first
+	if err := l.assignToVariable(varname, value, expr); err == nil {
+		return
+	}
+
+	// Try struct field assignment
+	idx := strings.LastIndexByte(varname, '.')
+	if idx != -1 {
+		fieldname := varname[idx+1:]
+		varname = varname[:idx]
+		
+		if err := l.assignToStructField(varname, fieldname, value, expr); err != nil {
+			l.reportError(expr.GetStart(), err)
+		}
+	} else {
+		// If we reach here, we couldn't assign to a variable or struct field
+		l.reportError(expr.GetStart(), fmt.Errorf("unknown variable '%s'", varname))
+	}
+}
+
+func (l *DoSourceListener) assignToVariable(varname string, value value.Value, expr parser.IExpressionContext) error {
+	variable, err := l.program.GetVariable(varname)
+	if err != nil {
+		return err
+	}
+
+	varType := variable.Type().(*types.PointerType).ElemType
+	valType := value.Type()
+
+	if varType != valType {
+		l.reportError(expr.GetStart(), fmt.Errorf(
+			"type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
+			varname, l.program.Typename(varType), l.program.Typename(valType)))
+		return nil
+	}
+
+	l.topBlock().NewStore(value, variable)
+	return nil
+}
+
+func (l *DoSourceListener) assignToStructField(varname, fieldname string, value value.Value, expr parser.IExpressionContext) error {
+	variable, err := l.program.GetVariable(varname)
+	if err != nil {
+		return err
+	}
+
+	fieldidx, err := l.program.GetFieldIdx(variable.Type().(*types.PointerType).ElemType, fieldname)
+	if err != nil {
+		return err
+	}
+
+	structType := variable.Type().(*types.PointerType).ElemType.(*types.StructType)
+	fieldType := structType.Fields[fieldidx]
+	valType := value.Type()
+
+	if fieldType != valType {
+		l.reportError(expr.GetStart(), fmt.Errorf(
+			"type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
+			varname+"."+fieldname, l.program.Typename(fieldType), l.program.Typename(valType)))
+		return nil
+	}
+
+	fieldptr := l.topBlock().NewGetElementPtr(
+		fieldType,
+		variable,
+		constant.NewIndex(constant.NewInt(types.I64, int64(fieldidx))),
+	)
+
+	l.topBlock().NewStore(value, fieldptr)
+	return nil
+}
+
+// Statement handling
 func (l *DoSourceListener) EnterStatement(ctx *parser.StatementContext) {
 	l.values = append(l.values, []value.Value{})
 }
+
 func (l *DoSourceListener) ExitStatement(ctx *parser.StatementContext) {
 	l.values = l.values[:len(l.values)-1]
 }
 
+// If statements
 func (l *DoSourceListener) EnterIfstatement(ctx *parser.IfstatementContext) {
 	trueBlock := l.newBlock()
 	falseBlock := l.newBlock()
@@ -390,29 +439,27 @@ func (l *DoSourceListener) ExitIfstatement(ctx *parser.IfstatementContext) {
 	falseBlock := l.blocks[len(l.blocks)-2]
 	trueBlock := l.blocks[len(l.blocks)-1]
 
-	values := l.values[len(l.values)-1]
+	values := l.currentValues()
 
 	if len(values) != 1 {
-		line := ctx.Expression().GetStart().GetLine()
-		start := ctx.Expression().GetStart().GetColumn()
-		stream := ctx.Expression().GetStart().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf("%v:%v:%v: if statement expected 1 bool, actual: %v", stream, line, start, len(values))
+		l.reportError(ctx.Expression().GetStart(), 
+			fmt.Errorf("if statement expected 1 bool, actual: %v", len(values)))
 		return
 	}
 
-	// TODO: проверка на буль values[0]
+	// Pop blocks from stack
+	l.popBlock() // trueBlock
+	l.popBlock() // falseBlock
+	l.popBlock() // baseBlock
 
-	l.popBlock()
-	l.popBlock()
-	l.popBlock()
-
+	// Create result block
 	resBlock := falseBlock
 	if ctx.Elsestatement() != nil {
 		resBlock = l.newBlock()
 		falseBlock.NewBr(resBlock)
 	}
 
+	// Create conditional branch
 	baseBlock.NewCondBr(values[0], trueBlock, falseBlock)
 	trueBlock.NewBr(resBlock)
 
@@ -431,35 +478,33 @@ func (l *DoSourceListener) ExitElsestatement(ctx *parser.ElsestatementContext) {
 	l.values = l.values[:len(l.values)-1]
 }
 
+// Return statements
 func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContext) {
-	values := l.values[len(l.values)-1]
-
+	values := l.currentValues()
 	rettype := l.currfunc.Sig.RetType.(*types.StructType)
 
 	if len(rettype.Fields) != len(values) {
-		line := ctx.GetStart().GetLine()
-		start := ctx.GetStart().GetColumn()
-		stream := ctx.GetStart().GetInputStream().GetSourceName()
-
-		l.program.AddErrorf(
-			"%v:%v:%v: incorrect number of expressions in the return expected: %v actual: %v",
-			stream,
-			line,
-			start,
-			len(rettype.Fields),
-			len(values),
-		)
+		l.reportError(ctx.GetStart(), fmt.Errorf(
+			"incorrect number of expressions in the return expected: %v actual: %v", 
+			len(rettype.Fields), len(values)))
 		return
 	}
 
-	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-	for i, field := range rettype.Fields {
+	l.generateReturnValue(rettype, values)
+}
 
-		l.topBlock().NewStore(
-			values[i],
-			l.topBlock().NewGetElementPtr(field, retvalRef, constant.NewIndex(constant.NewInt(types.I64, int64(i)))),
+func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values []value.Value) {
+	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
+	
+	for i, field := range rettype.Fields {
+		fieldPtr := l.topBlock().NewGetElementPtr(
+			field, 
+			retvalRef, 
+			constant.NewIndex(constant.NewInt(types.I64, int64(i))),
 		)
+		l.topBlock().NewStore(values[i], fieldPtr)
 	}
+	
 	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
 	retval.SetName("_ret")
 
@@ -468,6 +513,7 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 	l.pushBlock(l.newBlock())
 }
 
+// Variable declaration
 func (l *DoSourceListener) ExitVardeclarationstatement(ctx *parser.VardeclarationstatementContext) {
 	vartype := ctx.Typename().GetText()
 
@@ -476,27 +522,17 @@ func (l *DoSourceListener) ExitVardeclarationstatement(ctx *parser.Vardeclaratio
 
 		variable, err := l.program.RegisterVariable(l.topBlock(), varname, vartype)
 		if err != nil {
-			line := varnameToken.GetSymbol().GetLine()
-			start := varnameToken.GetSymbol().GetColumn()
-			stream := varnameToken.GetSymbol().GetInputStream().GetSourceName()
-
-			l.program.AddErrorf(
-				"%v:%v:%v: %w",
-				stream,
-				line,
-				start,
-				err,
-			)
+			l.reportError(varnameToken.GetSymbol(), err)
 			continue
 		}
 
-		l.topBlock().NewStore(
-			constant.NewZeroInitializer(variable.Type().(*types.PointerType).ElemType),
-			variable,
-		)
+		// Initialize with zero value
+		varType := variable.Type().(*types.PointerType).ElemType
+		l.topBlock().NewStore(constant.NewZeroInitializer(varType), variable)
 	}
 }
 
+// Statement blocks (scopes)
 func (l *DoSourceListener) EnterStatementblock(ctx *parser.StatementblockContext) {
 	l.program.NewScope()
 }
