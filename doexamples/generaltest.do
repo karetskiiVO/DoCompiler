@@ -1,9 +1,7 @@
 with A struct {}
 
-with a int
-
 act f () {
-    a, _ = 1, 3
+    tmpOut = 1
 }
 
 act main () {

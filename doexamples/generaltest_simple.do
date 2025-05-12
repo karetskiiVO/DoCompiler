@@ -30,5 +30,6 @@ act h (b int) (int, int) {
 }
 
 act t () (int, int) {
+    tmpOut = 2
     return 1, 0
 }
