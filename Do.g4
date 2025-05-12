@@ -38,8 +38,10 @@ expressiontuple: expression (',' expression)*;
 expression: emptyexpression | variableuse | constantuse | functioncall;
 functioncall: dividedname '(' expressiontuple? ')';
 
-expressiontuplelhv: expressiontuple;
+expressiontuplelhv: expressionlhv (',' expressionlhv)*;
+expressionlhv: emptyexpression | variableuselhv;
 expressiontuplerhv: expressiontuple;
+variableuselhv: dividedname;
 variableuse: dividedname;
 constantuse: bool | string | number;
 
