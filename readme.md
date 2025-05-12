@@ -32,4 +32,13 @@
     go test
 ```
 
+## Как компилировать
+
+Пока процесс компиляции выглядит так
+
+```bash
+    go run . [put your source files here]
+    clang program.ll std/tmpprint.c
+```
+
 ## Основные концепты
