@@ -137,11 +137,22 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 		return
 	}
 
-	call := l.topBlock().NewCall(function, args...)
+	retAlloca := l.topBlock().NewAlloca(function.Sig.RetType)
+	l.topBlock().NewStore(l.topBlock().NewCall(function, args...), retAlloca)
 
 	returnType := function.Sig.RetType.(*types.StructType)
-	for i := range returnType.Fields {
-		l.addValue(l.topBlock().NewExtractValue(call, uint64(i)))
+	for i, fieldType := range returnType.Fields {
+		l.addValue(
+			l.topBlock().NewLoad(
+				fieldType,
+				l.topBlock().NewGetElementPtr(
+					returnType,
+					retAlloca,
+					constant.NewIndex(constant.NewInt(types.I32, int64(0))),
+					constant.NewIndex(constant.NewInt(types.I32, int64(i))),
+				),
+			),
+		)
 	}
 }
 
@@ -409,18 +420,18 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 
 func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values []value.Value) {
 	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
 	
 	for i := range rettype.Fields {
 		fieldPtr := l.topBlock().NewGetElementPtr(
 			rettype,
-			retval,
+			retvalRef,
 			constant.NewInt(types.I32, 0),
 			constant.NewInt(types.I32, int64(i)),
 		)
 		l.topBlock().NewStore(values[i], fieldPtr)
 	}
-
+	
+	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
 	retval.SetName("_ret")
 
 	l.topBlock().NewRet(retval)

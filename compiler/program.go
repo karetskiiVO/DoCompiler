@@ -51,7 +51,7 @@ func (prog *Program) init() *Program {
 
 	// очень временное решение
 	prog.RegisterFunction("tmpPrint", []string{}, []string{}, []string{})
-
+	prog.RegisterFunction("one", []string{}, []string{}, []string{"int"})
 	prog.RegisterGlobalVariable("tmpOut", "int")
 	// prog.RegisterType("bool")
 	// prog.RegisterType("string")

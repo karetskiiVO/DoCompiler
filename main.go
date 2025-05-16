@@ -42,6 +42,9 @@ func Compile(srcFiles ...string) (*compiler.Program, error) {
 	}
 	for _, fileName := range srcFiles {
 		input, err := antlr.NewFileStream(fileName)
+		// file, err := os.Open(fileName)
+		// input := antlr.NewIoStream(file)
+		
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

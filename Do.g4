@@ -10,7 +10,7 @@ typeDefinition: 'with' NAME genericparamslist? type;
 
 type:  ('*' type) | ('pipe' type) | typename | structdefinition | behavourdefinition; 
 
-structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield))* '}';
+structdefinition: 'struct' '{' ((basetypefild | varfield | globalvarfield) /* ';' */)* '}';
 behavourdefinition: 'behavour' '{' '}';
 
 statementblock: '{' statement* '}';
@@ -27,12 +27,12 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: assign | ifstatement | returnstatement | vardeclarationstatement;
-vardeclarationstatement: 'var' NAME (',' NAME)* typename;
-assign: (expressiontuplelhv '=')? expressiontuplerhv;
+statement: (assign ';') | ifstatement | returnstatement | vardeclarationstatement;
+vardeclarationstatement: 'var' NAME (',' NAME)* typename /* ';' */;
+assign: (expressiontuplelhv '=')? expressiontuplerhv /* ';' */;
 ifstatement: 'if' expression statementblock elsestatement?;
 elsestatement: 'else' (ifstatement | statementblock);
-returnstatement: 'return' expressiontuple;
+returnstatement: 'return' expressiontuple /* ';' */;
 
 expressiontuple: expression (',' expression)*;
 expression: emptyexpression | variableuse | constantuse | functioncall;
