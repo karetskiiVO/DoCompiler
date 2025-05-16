@@ -198,7 +198,7 @@ func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 		return
 	}
 
-	l.reportError(ctx.GetStart(), fmt.Errorf("unknown variable '%s'", varname))
+	l.reportError(ctx.GetStart(), fmt.Errorf("variable `%v` is not declared in this scope", varname))
 }
 
 func (l *DoSourceListener) processSimpleVariable(varname string) bool {
@@ -290,7 +290,7 @@ func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvC
 		}
 	} else {
 		// все-таки не структура
-		l.reportError(expr.GetStart(), fmt.Errorf("unknown variable '%s'", varname))
+		l.reportError(expr.GetStart(), fmt.Errorf("variable `%s` is not declared in this scope", varname))
 	}
 }
 

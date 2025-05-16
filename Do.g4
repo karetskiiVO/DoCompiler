@@ -27,7 +27,7 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: (assign ';') | ifstatement | returnstatement | vardeclarationstatement;
+statement: (assign ';') | ifstatement | (returnstatement ';') | vardeclarationstatement;
 vardeclarationstatement: 'var' NAME (',' NAME)* typename /* ';' */;
 assign: (expressiontuplelhv '=')? expressiontuplerhv /* ';' */;
 ifstatement: 'if' expression statementblock elsestatement?;

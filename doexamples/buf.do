@@ -21,11 +21,11 @@ act f () {
 }
 
 act h () (int, int) {
-    return 1, 1
+    return 1, 1;
 }
 
 act g (a, b int) (int, int, int, int, int) {
-    return a, b, a, b, a
+    return a, b, a, b, a;
 }
 
 var buf int
@@ -36,5 +36,5 @@ act f1 () {
 act f2 () int {
     var tmp int
     buf = 2;
-    return tmp
+    return tmp;
 }

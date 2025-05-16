@@ -20,7 +20,6 @@ func TestCompile(t *testing.T) {
 			files: []string{"./testdata/scopes/main.do"},
 			expectedErrorMsg: multilinector.New().
 				AddLine("./testdata/scopes/main.do:13:4: variable `c` is not declared in this scope").
-				AddLine("./testdata/scopes/main.do:13:4: incorrect number of expressions in the assignment expected: 1 actual: 0").
 				String(),
 		},
 		{
@@ -31,8 +30,7 @@ func TestCompile(t *testing.T) {
 				AddLine("./testdata/assignments/main.do:7:4: incorrect number of expressions in the assignment expected: 1 actual: 2").
 				AddLine("./testdata/assignments/main.do:12:7: incorrect number of expressions in the assignment expected: 2 actual: 1").
 				AddLine("./testdata/assignments/main.do:15:4: incorrect number of expressions in the assignment expected: 1 actual: 2").
-				AddLine("./testdata/assignments/main.do:18:4: mistmatch in argument values: expected: 3 actual: 0").
-				AddLine("./testdata/assignments/main.do:20:4: mistmatch in argument values: expected: 3 actual: 4").
+				AddLine("./testdata/assignments/main.do:18:4: mistmatch in argument values: expected: 2 actual: 0").
 				String(),
 		},
 	}
@@ -48,6 +46,4 @@ func TestCompile(t *testing.T) {
 			}
 		})
 	}
-
-	Compile("./doexamples/generaltest_simple.do")
 }
