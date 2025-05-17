@@ -264,6 +264,8 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 		return
 	}
 
+	inlinedecl := (ctx.ASSIGNTOKEN().GetText() == ":=")
+
 	lhvExpressions := ctx.Expressiontuplelhv().AllExpressionlhv()
 	lhvLen := len(lhvExpressions)
 	values := l.currentValues()
@@ -278,27 +280,28 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 		return
 	}
 
-	l.processAssignments(lhvExpressions, values)
+	l.processAssignments(lhvExpressions, values, inlinedecl)
 }
 
-func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionlhvContext, values []value.Value) {
+func (l *DoSourceListener) processAssignments(expressions []parser.IExpressionlhvContext, values []value.Value, inlinedecl bool) {
 	for i, expr := range expressions {
 		if expr.Variableuselhv() != nil {
-			l.processVariableAssignment(expr, values[i])
+			l.processVariableAssignment(expr, values[i], inlinedecl)
 		}
 	}
 }
 
-func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvContext, value value.Value) {
+func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvContext, value value.Value, inlinedecl bool) {
 	varname := expr.GetText()
 
-	if err := l.assignToVariable(varname, value, expr); err == nil {
+	var err error
+	if err = l.assignToVariable(varname, value, expr, inlinedecl); err == nil {
 		return
 	}
 
 	// что если перед нами структура
 	idx := strings.LastIndexByte(varname, '.')
-	if idx != -1 {
+	if !inlinedecl && idx != -1 {
 		fieldname := varname[idx+1:]
 		varname = varname[:idx]
 
@@ -307,14 +310,26 @@ func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvC
 		}
 	} else {
 		// все-таки не структура
-		l.reportErrorf(expr.GetStart(), "variable `%s` is not declared in this scope", varname)
+		l.reportError(expr.GetStart(), err)
 	}
 }
 
-func (l *DoSourceListener) assignToVariable(varname string, value value.Value, expr parser.IExpressionlhvContext) error {
+func (l *DoSourceListener) assignToVariable(varname string, value value.Value, expr parser.IExpressionlhvContext, inlinedecl bool) error {
 	variable, err := l.program.GetVariable(varname)
 	if err != nil {
-		return err
+		if inlinedecl {
+			variable, err = l.program.RegisterVariable(
+				l.topBlock(),
+				varname,
+				l.program.Typename(value.Type()),
+			)
+
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	varType := variable.Type().(*types.PointerType).ElemType
@@ -416,7 +431,6 @@ func (l *DoSourceListener) ExitIfexpression(ctx *parser.IfexpressionContext) {
 	baseBlock := l.blocks[len(l.blocks)-3]
 	falseBlock := l.blocks[len(l.blocks)-2]
 	trueBlock := l.blocks[len(l.blocks)-1]
-
 
 	baseBlock.NewCondBr(values[0], trueBlock, falseBlock)
 }
