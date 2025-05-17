@@ -475,10 +475,10 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 		return
 	}
 
-	l.generateReturnValue(rettype, values)
+	l.generateReturnValue(ctx, rettype, values)
 }
 
-func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values []value.Value) {
+func (l *DoSourceListener) generateReturnValue(ctx *parser.ReturnstatementContext, rettype *types.StructType, values []value.Value) {
 	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
 
 	for i := range rettype.Fields {
@@ -488,6 +488,16 @@ func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values
 			constant.NewInt(types.I32, 0),
 			constant.NewInt(types.I32, int64(i)),
 		)
+
+		if values[i].Type() != rettype.Fields[i] {
+			l.reportErrorf(ctx.GetStart(),
+				"return value expected: %v actual: %v",
+				l.program.Typename(rettype.Fields[i]),
+				l.program.Typename(values[i].Type()),
+			)
+			return
+		}
+
 		l.topBlock().NewStore(values[i], fieldPtr)
 	}
 

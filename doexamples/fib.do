@@ -15,7 +15,7 @@ act println (val int) {
     tmpPrint();
 }
 
-act fibonacci (n int) (int, int){
+act fibonacci (n int) (int, int) {
     if n == 0 {
         return 0, 1;
     } else {

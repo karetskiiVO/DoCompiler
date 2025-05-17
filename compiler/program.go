@@ -388,7 +388,7 @@ func (prog Program) GetFieldIdx(typ types.Type, fieldname string) (int, error) {
 
 	res, ok := fieldmap[fieldname]
 	if !ok {
-		return -1, fmt.Errorf("type `%v` has no field `%v`",prog.Typename(typ), fieldname)
+		return -1, fmt.Errorf("type `%v` has no field `%v`", prog.Typename(typ), fieldname)
 	}
 
 	return res, nil
