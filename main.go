@@ -58,9 +58,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	//defer buf.Dispose()
 	llvmctx := llvm.NewContext()
-	//defer ctx.Dispose()
 	mod, err := llvmctx.ParseIR(buf)
 	if err != nil {
 		fmt.Println(err)
@@ -75,7 +73,8 @@ func main() {
 	defer out.Close()
 	llvm.WriteBitcodeToFile(mod, out)
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	command := exec.CommandContext(
 		ctx,
 		"clang", "-o",

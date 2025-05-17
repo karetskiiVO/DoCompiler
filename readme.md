@@ -14,14 +14,14 @@
 Для запуска
 
 ```bash
-    go run . [put your source files here]
+    go run . {put your source files here} [-o executable name(optional)] 
 ```
 
 или
 
 ```bash
     go build .
-    DoCompiler [put your source files here]
+    DoCompiler [put your source files here] [-o executable name(optional)] 
 ```
 
 ## Тестирование
@@ -30,15 +30,6 @@
 
 ```bash
     go test
-```
-
-## Как компилировать
-
-Пока процесс компиляции выглядит так
-
-```bash
-    go run . [put your source files here]
-    clang program.ll std/tmpprint.c
 ```
 
 ## Основные концепты
