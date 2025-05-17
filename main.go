@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/jessevdk/go-flags"
 	"github.com/karetskiiVO/DoCompiler/parser"
+
+	"tinygo.org/x/go-llvm"
 
 	"github.com/karetskiiVO/DoCompiler/compiler"
 	doListeners "github.com/karetskiiVO/DoCompiler/compiler/listeners"
@@ -17,6 +23,7 @@ func main() {
 		Args struct {
 			SourceFileNames []string
 		} `positional-args:"yes" required:"1"`
+		OutputFile string `short:"o" long:"output" description:"Output file" default:"a.bc"`
 	}
 
 	flagsParser := flags.NewParser(&options, flags.Default&(^flags.PrintErrors))
@@ -30,8 +37,57 @@ func main() {
 	program, err := Compile(options.Args.SourceFileNames...)
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		os.WriteFile("program.ll", []byte(program.String()), 0644)
+		os.Exit(1)
+	}
+
+	llvm.InitializeAllTargets()
+	llvm.InitializeAllTargetMCs()
+	llvm.InitializeAllAsmPrinters()
+	llvm.InitializeAllAsmParsers()
+
+	tempdir := os.TempDir()
+	tempFile := filepath.Join(tempdir, "program.ll")
+	err = os.WriteFile(tempFile, []byte(program.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	buf, err := llvm.NewMemoryBufferFromFile(tempFile)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	//defer buf.Dispose()
+	llvmctx := llvm.NewContext()
+	//defer ctx.Dispose()
+	mod, err := llvmctx.ParseIR(buf)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	out, err := os.CreateTemp(tempdir, "program*.bc")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer out.Close()
+	llvm.WriteBitcodeToFile(mod, out)
+
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	command := exec.CommandContext(
+		ctx,
+		"clang", "-o",
+		options.OutputFile,
+		out.Name(),
+		"./std/tmpprint.c",
+	)
+
+	err = command.Run()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
@@ -44,7 +100,7 @@ func Compile(srcFiles ...string) (*compiler.Program, error) {
 		input, err := antlr.NewFileStream(fileName)
 		// file, err := os.Open(fileName)
 		// input := antlr.NewIoStream(file)
-		
+
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
