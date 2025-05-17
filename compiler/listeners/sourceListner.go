@@ -7,8 +7,10 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/karetskiiVO/DoCompiler/parser"
+	"github.com/karetskiiVO/slices"
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 
@@ -23,6 +25,8 @@ type DoSourceListener struct {
 
 	blocks []*ir.Block
 	values [][]value.Value
+
+	oneExpressionContext []int
 }
 
 func NewDoSourceListener(program *compiler.Program) antlr.ParseTreeListener {
@@ -60,6 +64,15 @@ func (l *DoSourceListener) popValues() []value.Value {
 
 func (l *DoSourceListener) reportError(token antlr.Token, err error) {
 	l.reportErrorAt(token.GetLine(), token.GetColumn(), token.GetInputStream().GetSourceName(), err)
+}
+
+func (l *DoSourceListener) reportErrorf(token antlr.Token, format string, args ...interface{}) {
+	l.reportErrorAt(
+		token.GetLine(),
+		token.GetColumn(),
+		token.GetInputStream().GetSourceName(),
+		fmt.Errorf(format, args...),
+	)
 }
 
 func (l *DoSourceListener) reportErrorAt(line, column int, source string, err error) {
@@ -131,9 +144,11 @@ func (l *DoSourceListener) ExitFunctioncall(ctx *parser.FunctioncallContext) {
 	args := l.popValues()
 
 	if len(args) != len(function.Sig.Params) {
-		l.reportError(ctx.Dividedname().GetStart(),
-			fmt.Errorf("mistmatch in argument values: expected: %v actual: %v",
-				len(function.Sig.Params), len(args)))
+		l.reportErrorf(ctx.Dividedname().GetStart(),
+			"mistmatch in argument values: expected: %v actual: %v",
+			len(function.Sig.Params),
+			len(args),
+		)
 		return
 	}
 
@@ -198,7 +213,7 @@ func (l *DoSourceListener) ExitVariableuse(ctx *parser.VariableuseContext) {
 		return
 	}
 
-	l.reportError(ctx.GetStart(), fmt.Errorf("variable `%v` is not declared in this scope", varname))
+	l.reportErrorf(ctx.GetStart(), "variable `%v` is not declared in this scope", varname)
 }
 
 func (l *DoSourceListener) processSimpleVariable(varname string) bool {
@@ -255,9 +270,11 @@ func (l *DoSourceListener) ExitAssign(ctx *parser.AssignContext) {
 
 	if lhvLen != len(values) {
 		stop := ctx.Expressiontuplelhv().GetStop()
-		l.reportError(stop, fmt.Errorf(
+		l.reportErrorf(stop,
 			"incorrect number of expressions in the assignment expected: %v actual: %v",
-			lhvLen, len(values)))
+			lhvLen,
+			len(values),
+		)
 		return
 	}
 
@@ -290,7 +307,7 @@ func (l *DoSourceListener) processVariableAssignment(expr parser.IExpressionlhvC
 		}
 	} else {
 		// все-таки не структура
-		l.reportError(expr.GetStart(), fmt.Errorf("variable `%s` is not declared in this scope", varname))
+		l.reportErrorf(expr.GetStart(), "variable `%s` is not declared in this scope", varname)
 	}
 }
 
@@ -304,9 +321,12 @@ func (l *DoSourceListener) assignToVariable(varname string, value value.Value, e
 	valType := value.Type()
 
 	if varType != valType {
-		l.reportError(expr.GetStart(), fmt.Errorf(
+		l.reportErrorf(expr.GetStart(),
 			"type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
-			varname, l.program.Typename(varType), l.program.Typename(valType)))
+			varname,
+			l.program.Typename(varType),
+			l.program.Typename(valType),
+		)
 		return nil
 	}
 
@@ -330,9 +350,13 @@ func (l *DoSourceListener) assignToStructField(varname, fieldname string, value 
 	valType := value.Type()
 
 	if fieldType != valType {
-		l.reportError(expr.GetStart(), fmt.Errorf(
-			"type mismatch in assignment: variable '%v' has type %v, but assigned value has type %v",
-			varname+"."+fieldname, l.program.Typename(fieldType), l.program.Typename(valType)))
+		l.reportErrorf(expr.GetStart(),
+			"type mismatch in assignment: variable `%v.%v` has type %v, but assigned value has type %v",
+			varname,
+			fieldname,
+			l.program.Typename(fieldType),
+			l.program.Typename(valType),
+		)
 		return nil
 	}
 
@@ -363,30 +387,50 @@ func (l *DoSourceListener) EnterIfstatement(ctx *parser.IfstatementContext) {
 	l.pushBlock(trueBlock)
 }
 
-func (l *DoSourceListener) ExitIfstatement(ctx *parser.IfstatementContext) {
-	baseBlock := l.blocks[len(l.blocks)-3]
-	falseBlock := l.blocks[len(l.blocks)-2]
-	trueBlock := l.blocks[len(l.blocks)-1]
+func (l *DoSourceListener) EnterIfexpression(ctx *parser.IfexpressionContext) {
+	l.pushBlock(l.blocks[len(l.blocks)-3])
+}
+
+func (l *DoSourceListener) ExitIfexpression(ctx *parser.IfexpressionContext) {
+	l.popBlock()
 
 	values := l.currentValues()
 
 	if len(values) != 1 {
-		l.reportError(ctx.Expression().GetStart(),
-			fmt.Errorf("if statement expected 1 bool, actual: %v", len(values)))
+		l.reportErrorf(ctx.Expression().GetStart(),
+			"if statement expected 1 bool, actual: %v",
+			len(values),
+		)
 		return
 	}
+
+	booltype, _ := l.program.GetType("bool")
+	if values[0].Type() != booltype {
+		l.reportErrorf(ctx.Expression().GetStart(),
+			"if statement expected bool, actual: %v",
+			l.program.Typename(values[0].Type()),
+		)
+		return
+	}
+
+	baseBlock := l.blocks[len(l.blocks)-3]
+	falseBlock := l.blocks[len(l.blocks)-2]
+	trueBlock := l.blocks[len(l.blocks)-1]
+
+
+	baseBlock.NewCondBr(values[0], trueBlock, falseBlock)
+}
+
+func (l *DoSourceListener) ExitIfstatement(ctx *parser.IfstatementContext) {
+	falseBlock := l.blocks[len(l.blocks)-2]
+	trueBlock := l.blocks[len(l.blocks)-1]
 
 	l.popBlock() // trueBlock
 	l.popBlock() // falseBlock
 	l.popBlock() // baseBlock
 
-	resBlock := falseBlock
-	if ctx.Elsestatement() != nil {
-		resBlock = l.newBlock()
-		falseBlock.NewBr(resBlock)
-	}
-
-	baseBlock.NewCondBr(values[0], trueBlock, falseBlock)
+	resBlock := l.newBlock()
+	falseBlock.NewBr(resBlock)
 	trueBlock.NewBr(resBlock)
 
 	l.pushBlock(resBlock)
@@ -409,9 +453,11 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 	rettype := l.currfunc.Sig.RetType.(*types.StructType)
 
 	if len(rettype.Fields) != len(values) {
-		l.reportError(ctx.GetStart(), fmt.Errorf(
+		l.reportErrorf(ctx.GetStart(),
 			"incorrect number of expressions in the return expected: %v actual: %v",
-			len(rettype.Fields), len(values)))
+			len(rettype.Fields),
+			len(values),
+		)
 		return
 	}
 
@@ -420,7 +466,7 @@ func (l *DoSourceListener) ExitReturnstatement(ctx *parser.ReturnstatementContex
 
 func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values []value.Value) {
 	retvalRef := l.topBlock().NewAlloca(l.currfunc.Sig.RetType)
-	
+
 	for i := range rettype.Fields {
 		fieldPtr := l.topBlock().NewGetElementPtr(
 			rettype,
@@ -430,9 +476,8 @@ func (l *DoSourceListener) generateReturnValue(rettype *types.StructType, values
 		)
 		l.topBlock().NewStore(values[i], fieldPtr)
 	}
-	
+
 	retval := l.topBlock().NewLoad(l.currfunc.Sig.RetType, retvalRef)
-	retval.SetName("_ret")
 
 	l.topBlock().NewRet(retval)
 	l.popBlock()
@@ -462,4 +507,250 @@ func (l *DoSourceListener) EnterStatementblock(ctx *parser.StatementblockContext
 
 func (l *DoSourceListener) ExitStatementblock(ctx *parser.StatementblockContext) {
 	l.program.TerminateScope()
+}
+
+func (l *DoSourceListener) EnterOneexpression(ctx *parser.OneexpressionContext) {
+	l.oneExpressionContext = append(l.oneExpressionContext, len(l.values))
+}
+
+func (l *DoSourceListener) ExitOneexpression(ctx *parser.OneexpressionContext) {
+	newExprCnt := len(l.values) - l.oneExpressionContext[len(l.oneExpressionContext)-1]
+	l.oneExpressionContext = l.oneExpressionContext[:len(l.oneExpressionContext)-1]
+
+	if newExprCnt != 0 {
+		l.reportErrorf(ctx.GetStart(), "expectedd 1 value actual: %v", newExprCnt)
+	}
+}
+
+func (l *DoSourceListener) ExitLogic(ctx *parser.LogicContext) {
+	cnt := len(ctx.AllAndlogic())
+	if cnt == 1 {
+		return
+	}
+
+	values := slices.Clone(l.currentValues()[len(l.currentValues())-cnt:])
+	l.values[len(l.values)-1] = l.values[len(l.values)-1][:len(l.currentValues())-cnt]
+
+	booltype, _ := l.program.GetType("bool")
+
+	for i, val := range values {
+		if val.Type() != booltype {
+			l.reportErrorf(ctx.Andlogic(i).GetStart(),
+				"expected bool actual: %v",
+				l.program.Typename(val.Type()),
+			)
+
+			return
+		}
+	}
+
+	// TODO: ленивое вычисление
+	for len(values) > 1 {
+		values[1] = l.topBlock().NewOr(
+			values[0],
+			values[1],
+		)
+		values = values[1:]
+	}
+
+	l.addValue(values[0])
+}
+
+func (l *DoSourceListener) ExitAndlogic(ctx *parser.AndlogicContext) {
+	cnt := len(ctx.AllCompare())
+	if cnt == 1 {
+		return
+	}
+
+	values := slices.Clone(l.currentValues()[len(l.currentValues())-cnt:])
+	l.values[len(l.values)-1] = l.values[len(l.values)-1][:len(l.currentValues())-cnt]
+
+	booltype, _ := l.program.GetType("bool")
+
+	for i, val := range values {
+		if val.Type() != booltype {
+			l.reportErrorf(ctx.Compare(i).GetStart(),
+				"expected bool actual: %v",
+				l.program.Typename(val.Type()),
+			)
+
+			return
+		}
+	}
+
+	// TODO: ленивое вычисление
+	for len(values) > 1 {
+		values[1] = l.topBlock().NewAnd(
+			values[0],
+			values[1],
+		)
+		values = values[1:]
+	}
+
+	l.addValue(values[0])
+}
+
+func (l *DoSourceListener) ExitCompare(ctx *parser.CompareContext) {
+	if len(ctx.AllOneexpression()) == 1 {
+		return
+	}
+
+	values := slices.Clone(l.currentValues()[len(l.currentValues())-2:])
+	l.values[len(l.values)-1] = l.values[len(l.values)-1][:len(l.currentValues())-2]
+
+	inttype, _ := l.program.GetType("int")
+	booltype, _ := l.program.GetType("bool")
+
+	compareToken := ctx.COMPARETOKEN().GetText()
+	compare := map[string]struct {
+		acceptableTypes map[types.Type]struct{}
+		pred            enum.IPred
+	}{
+		"==": {
+			map[types.Type]struct{}{inttype: {}, booltype: {}},
+			enum.IPredEQ,
+		},
+		"!=": {
+			map[types.Type]struct{}{inttype: {}, booltype: {}},
+			enum.IPredNE,
+		},
+		"<": {
+			map[types.Type]struct{}{inttype: {}},
+			enum.IPredSLT,
+		},
+		"<=": {
+			map[types.Type]struct{}{inttype: {}},
+			enum.IPredSLE,
+		},
+		">": {
+			map[types.Type]struct{}{inttype: {}},
+			enum.IPredSGT,
+		},
+		">=": {
+			map[types.Type]struct{}{inttype: {}},
+			enum.IPredSGE,
+		},
+	}[compareToken]
+
+	if values[0].Type() != values[1].Type() {
+		l.reportErrorf(ctx.GetStart(),
+			"expected %v actual: %v",
+			l.program.Typename(values[0].Type()),
+			l.program.Typename(values[1].Type()),
+		)
+		return
+	}
+
+	if _, ok := compare.acceptableTypes[values[0].Type()]; !ok {
+		l.reportErrorf(ctx.GetStart(),
+			"type `%v` is not accepted to comprarsion with `%v`",
+			l.program.Typename(values[0].Type()),
+			compareToken,
+		)
+		return
+	}
+	if _, ok := compare.acceptableTypes[values[1].Type()]; !ok {
+		l.reportErrorf(ctx.GetStart(),
+			"type `%v` is not accepted to comprarsion with `%v`",
+			l.program.Typename(values[1].Type()),
+			compareToken,
+		)
+		return
+	}
+
+	l.addValue(
+		l.topBlock().NewICmp(
+			compare.pred,
+			values[0],
+			values[1],
+		),
+	)
+}
+
+func (l *DoSourceListener) ExitArithmetic(ctx *parser.ArithmeticContext) {
+	cnt := len(ctx.AllMultiply())
+	if cnt == 1 {
+		return
+	}
+
+	values := slices.Clone(l.currentValues()[len(l.currentValues())-cnt:])
+	l.values[len(l.values)-1] = l.values[len(l.values)-1][:len(l.currentValues())-cnt]
+
+	inttype, _ := l.program.GetType("int")
+
+	for i, val := range values {
+		if val.Type() != inttype {
+			l.reportErrorf(ctx.Multiply(i).GetStart(),
+				"expected int actual: %v",
+				l.program.Typename(val.Type()),
+			)
+
+			return
+		}
+	}
+
+	sumtokens := ctx.AllSUMTOKEN()
+
+	for len(values) > 1 {
+		if sumtokens[0].GetText() == "+" {
+			values[1] = l.topBlock().NewAdd(
+				values[0],
+				values[1],
+			)
+		} else {
+			values[1] = l.topBlock().NewSub(
+				values[0],
+				values[1],
+			)
+		}
+
+		values = values[1:]
+		sumtokens = sumtokens[1:]
+	}
+
+	l.addValue(values[0])
+}
+
+func (l *DoSourceListener) ExitMultiply(ctx *parser.MultiplyContext) {
+	cnt := len(ctx.AllOneexpression())
+	if cnt == 1 {
+		return
+	}
+
+	values := slices.Clone(l.currentValues()[len(l.currentValues())-cnt:])
+	l.values[len(l.values)-1] = l.values[len(l.values)-1][:len(l.currentValues())-cnt]
+
+	inttype, _ := l.program.GetType("int")
+
+	for i, val := range values {
+		if val.Type() != inttype {
+			l.reportErrorf(ctx.Oneexpression(i).GetStart(),
+				"expected int actual: %v",
+				l.program.Typename(val.Type()),
+			)
+
+			return
+		}
+	}
+
+	multokens := ctx.AllMULTTOKEN()
+
+	for len(values) > 1 {
+		if multokens[0].GetText() == "^" {
+			values[1] = l.topBlock().NewMul(
+				values[0],
+				values[1],
+			)
+		} else {
+			values[1] = l.topBlock().NewSDiv(
+				values[0],
+				values[1],
+			)
+		}
+
+		values = values[1:]
+		multokens = multokens[1:]
+	}
+
+	l.addValue(values[0])
 }

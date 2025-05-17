@@ -27,16 +27,36 @@ typename: dividedname genericparamslist?; // TODO: лямбды
 genericparamslist: '<' (NAME (',' NAME)*)? '>';
 genericarglist: '<' (type (',' type)*)? '>'; // TODO: behavour
 
-statement: (assign ';') | ifstatement | (returnstatement ';') | vardeclarationstatement;
+statement: assign | ifstatement | returnstatement | vardeclarationstatement;
 vardeclarationstatement: 'var' NAME (',' NAME)* typename /* ';' */;
-assign: (expressiontuplelhv '=')? expressiontuplerhv /* ';' */;
-ifstatement: 'if' expression statementblock elsestatement?;
-elsestatement: 'else' (ifstatement | statementblock);
-returnstatement: 'return' expressiontuple /* ';' */;
+assign: (expressiontuplelhv '=')? expressiontuplerhv ';';
+ifstatement: 'if' ifexpression statementblock elsestatement?;
+elsestatement: 'else'  statementblock;
+returnstatement: 'return' expressiontuple ';';
+
+ifexpression: expression;
 
 expressiontuple: expression (',' expression)*;
-expression: emptyexpression | variableuse | constantuse | functioncall;
+expression:
+    emptyexpression             |
+    arithmetic                  |
+    variableuse                 |
+    constantuse                 |
+    functioncall                |
+    logic;
+oneexpression:
+    constantuse                 |
+    variableuse                 |
+    functioncall                |
+    ('(' expression ')');
 functioncall: dividedname '(' expressiontuple? ')';
+
+arithmetic: multiply (SUMTOKEN multiply)*;
+multiply: oneexpression (MULTTOKEN oneexpression)*;
+
+logic: andlogic ('||' andlogic)*;
+andlogic: compare ('&&' compare)*;
+compare: (oneexpression | arithmetic) (COMPARETOKEN (oneexpression | arithmetic))?;
 
 expressiontuplelhv: expressionlhv (',' expressionlhv)*;
 expressionlhv: emptyexpression | variableuselhv;
@@ -62,17 +82,5 @@ NAME:   [a-zA-Z][a-zA-Z0-9]*;
 COMMENT: '//' .*? '\n' -> skip;
 MULTILINECOMMENT: '/*' .*? '*/' -> skip;
 EMPTY:  [ \t\r\n]+ -> skip;
-
-// decl typename<T1 behavour, T2, ...> struct {}
-// decl typename<T1 behavour, T2, ...> anothertype<T1, T2, ...>
-// decl typename<T1 behavour, T2, ...> behavour {}
-// act f<T1 behavour, T2, ...> (argname typename, ...) returnType {}
-// act f<T1 behavour, T2, ...> (self typename) (argname typename, ...) returnType {}
-// act f<T1 behavour, T2, ...> [typename] (argname typename, ...) returnType {}
-// with varname typename
-// with varname = typename{}
-// with varname = act () returnType {}
-// event.Register(act () {})
-// f()? -- проброс error            -- откалывает последный член tupple -- error всегда последнее значение
-// f()! -- роняет программу с error -- откалывает последный член tupple -- error всегда последнее значение
-// self type
+SUMTOKEN: ('+' | '-');
+MULTTOKEN: ('^' | '/'); // Тут какая-то бага у antlr
